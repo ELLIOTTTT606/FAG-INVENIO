@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://france-air.local/invenio/pac_geg.schema.json",
+  "title": "INVENIO PAC/GEG canonical record",
+  "description": "JSON canonique produit par le parser et consomme par l'UI et le generateur PDF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["family", "model", "size", "type"],
+  "properties": {
+    "family": {
+      "type": "string",
+      "enum": ["PAC", "GEG"],
+      "description": "Famille machine (PAC ou groupe d'eau glacee)."
+    },
+    "model": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 16,
+      "pattern": "^[A-Z0-9]+$"
+    },
+    "size": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8,
+      "pattern": "^[0-9A-Z]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["HS", "HL", "CS", "CL"],
+      "description": "Type acoustique : H/C (Heating/Cooling) + S/L (Standard/Low noise)."
+    },
+    "designation_code": {
+      "type": ["string", "null"],
+      "description": "Chaine de designation brute extraite du document source."
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cooling": { "$ref": "#/$defs/operatingPoint" },
+        "heating": { "$ref": "#/$defs/operatingPoint" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cooling_power_kW": { "$ref": "#/$defs/oneDecimal" },
+        "heating_power_kW": { "$ref": "#/$defs/oneDecimal" },
+        "cop": { "$ref": "#/$defs/oneDecimal" },
+        "eer": { "$ref": "#/$defs/oneDecimal" },
+        "scop": { "$ref": "#/$defs/oneDecimal" },
+        "seer": { "$ref": "#/$defs/oneDecimal" }
+      }
+    },
+    "hydraulics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lp_pump_pressure_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "hp_pump_pressure_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "water_flow_lph": { "type": ["integer", "null"], "minimum": 0 },
+        "pressure_drop_kPa": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "electrical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "supply": {
+          "type": ["string", "null"],
+          "description": "ex: 400/3+N/50"
+        },
+        "max_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "starting_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "absorbed_power_kW": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "acoustics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sound_power_dBA": { "type": ["number", "null"], "minimum": 0 },
+        "sound_pressure_10m_dBA": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "label"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1, "maxLength": 4 },
+          "category": { "type": ["string", "null"] },
+          "label": { "type": "string", "minLength": 1 },
+          "description": { "type": ["string", "null"] },
+          "tips": { "type": ["string", "null"] },
+          "selected": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "contacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "client_code": { "type": ["string", "null"] },
+        "client_name": { "type": ["string", "null"] },
+        "postal_code": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{5}$"
+        },
+        "department": {
+          "type": ["string", "null"],
+          "pattern": "^(2A|2B|[0-9]{2,3})$"
+        },
+        "tci": { "$ref": "#/$defs/contact" },
+        "tcs": { "$ref": "#/$defs/contact" },
+        "solution": { "$ref": "#/$defs/contact" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filename": { "type": "string" },
+        "format": { "type": "string", "enum": ["docx", "pdf"] },
+        "extracted_at": { "type": "string", "format": "date-time" },
+        "parser_version": { "type": "string" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "field": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "oneDecimal": {
+      "type": ["number", "null"],
+      "description": "Valeur arrondie a 1 decimale (cote applicatif)."
+    },
+    "operatingPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "water_in_C": { "type": ["number", "null"] },
+        "water_out_C": { "type": ["number", "null"] },
+        "glycol_percent": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "air_temp_C": { "type": ["number", "null"] },
+        "air_humidity_percent": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "load_percent": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "contact": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "email": { "type": ["string", "null"], "format": "email" },
+        "phone": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+model,family,type,size,option_code,option_category,label_fr,description_fr,tips_fr,price_eur,available,source_file,last_updated
+MPET18-C,C,HS,18,0,Pompe eau cote utilisateur,Absente,Aucune pompe integree,,,true,source1.docx,2026-04-27
+MPET18-C,C,HS,18,1,Pompe eau cote utilisateur,Pompe simple,Pompe simple non modulante alimentation 230V,Verifier raccordement,,true,source1.docx,2026-04-27
+MPET18-C,C,HS,18,P,Kit antigel,Protection echangeur + pompe,Protection electrique echangeur et pompe,Recommande pour climats froids,,true,source1.docx,2026-04-27
+PLP052-H,H,HS,52,A,Alimentation,Triphase 400V,Alimentation 400V triphase plus neutre,,,true,source2.docx,2026-04-27

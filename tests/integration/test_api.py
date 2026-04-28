@@ -1,4 +1,4 @@
-"""Integration test: upload a DOCX through the FastAPI endpoint."""
+"""Integration tests: upload DOCX/PDF through the FastAPI endpoints."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app
 from tests.fixtures.galletti_docx import build_pac_document
+from tests.fixtures.galletti_pdf import write_pac as write_pac_pdf
 
 
 @pytest.fixture()
@@ -18,6 +19,12 @@ def sample_docx_bytes() -> bytes:
     buf = BytesIO()
     document.save(buf)
     return buf.getvalue()
+
+
+@pytest.fixture()
+def sample_pdf_bytes(tmp_path: Path) -> bytes:
+    pdf_path = write_pac_pdf(tmp_path / "sample.pdf")
+    return pdf_path.read_bytes()
 
 
 def test_health_endpoint() -> None:
@@ -44,10 +51,28 @@ def test_parse_docx_endpoint_returns_canonical_payload(sample_docx_bytes: bytes)
     assert body["data"]["performance"]["cooling"]["power_kW"] == 41.7
 
 
+def test_parse_pdf_endpoint_returns_canonical_payload(sample_pdf_bytes: bytes) -> None:
+    client = TestClient(app)
+    files = {"file": ("sample.pdf", sample_pdf_bytes, "application/pdf")}
+    response = client.post("/parse/pdf", files=files)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["data"]["family"] == "PAC"
+    assert body["data"]["performance"]["cooling"]["seer"] == 4.15
+    assert body["data"]["performance"]["heating"]["scop"] == 4.35
+
+
 def test_parse_docx_endpoint_rejects_wrong_extension() -> None:
     client = TestClient(app)
     files = {"file": ("bad.txt", b"hello", "text/plain")}
     response = client.post("/parse/docx", files=files)
+    assert response.status_code == 415
+
+
+def test_parse_pdf_endpoint_rejects_docx() -> None:
+    client = TestClient(app)
+    files = {"file": ("bad.docx", b"hello", "application/octet-stream")}
+    response = client.post("/parse/pdf", files=files)
     assert response.status_code == 415
 
 

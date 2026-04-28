@@ -1,11 +1,13 @@
-"""Tests for the DOCX parser MVP."""
+"""Tests for the DOCX parser."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 from docx import Document
+from jsonschema import Draft202012Validator
 
 from src.parser.docx_parser import (
     DESIGNATION_RE,
@@ -13,6 +15,7 @@ from src.parser.docx_parser import (
     normalize_label,
     parse_docx,
 )
+from tests.fixtures.galletti_docx import write_geg, write_pac
 
 
 def test_designation_regex_extracts_groups() -> None:
@@ -29,7 +32,6 @@ def test_detect_designation_returns_first_match() -> None:
     paragraphs = [
         "Fiche technique GALLETTI",
         "Reference : PLP052HS2B A000CE000I00110 0000000I000000000000",
-        "Autres infos",
     ]
     code, parts = detect_designation(paragraphs)
     assert code is not None
@@ -49,52 +51,81 @@ def test_normalize_label_strips_accents_and_punctuation() -> None:
 
 
 @pytest.fixture()
-def sample_docx(tmp_path: Path) -> Path:
-    """Build a minimal DOCX with a designation line and a small table."""
-
-    document = Document()
-    document.add_paragraph("Fiche technique - extraction MVP")
-    document.add_paragraph("Reference: PLP052HS2B A000CE000I00110 0000000I000000000000")
-
-    table = document.add_table(rows=4, cols=3)
-    table.rows[0].cells[0].text = "Puissance frigorifique"
-    table.rows[0].cells[1].text = "kW"
-    table.rows[0].cells[2].text = "41,7"
-
-    table.rows[1].cells[0].text = "Puissance calorifique"
-    table.rows[1].cells[1].text = "kW"
-    table.rows[1].cells[2].text = "52.3"
-
-    table.rows[2].cells[0].text = "Courant maximum"
-    table.rows[2].cells[1].text = "A"
-    table.rows[2].cells[2].text = "56"
-
-    table.rows[3].cells[0].text = "Debit eau"
-    table.rows[3].cells[1].text = "l/h"
-    table.rows[3].cells[2].text = "7200"
-
-    out = tmp_path / "sample.docx"
-    document.save(str(out))
-    return out
+def schema_validator() -> Draft202012Validator:
+    schema = json.loads(Path("src/schema/pac_geg_schema.json").read_text(encoding="utf-8"))
+    return Draft202012Validator(schema)
 
 
-def test_parse_docx_extracts_designation_and_metrics(sample_docx: Path) -> None:
-    result = parse_docx(sample_docx)
+def test_parse_pac_fixture_extracts_cooling_and_heating(
+    tmp_path: Path, schema_validator: Draft202012Validator
+) -> None:
+    fixture = write_pac(tmp_path / "pac.docx")
+    result = parse_docx(fixture)
+    data = result.data
 
-    assert result.data["model"] == "PLP"
-    assert result.data["size"] == "052"
-    assert result.data["type"] == "HS"
-    assert result.data["designation_code"] is not None
+    assert data["family"] == "PAC"
+    assert data["model"] == "PLP"
+    assert data["size"] == "052"
+    assert data["type"] == "HS"
 
-    perf = result.data["performance"]
-    assert perf["cooling_power_kW"] == 41.7
-    assert perf["heating_power_kW"] == 52.3
+    cooling = data["conditions"]["cooling"]
+    assert cooling["water_in_C"] == 12.0
+    assert cooling["water_out_C"] == 7.0
+    assert cooling["air_temp_C"] == 35.0
+    assert cooling["load_percent"] == 100
 
-    assert result.data["electrical"]["max_current_A"] == 56.0
-    assert result.data["hydraulics"]["water_flow_lph"] == 7200
+    heating = data["conditions"]["heating"]
+    assert heating["water_in_C"] == 40.0
+    assert heating["water_out_C"] == 45.0
+    assert heating["air_temp_C"] == 7.0
+    assert heating["air_humidity_percent"] == 87
 
-    assert result.data["source"]["filename"] == "sample.docx"
-    assert result.data["source"]["format"] == "docx"
+    perf_c = data["performance"]["cooling"]
+    assert perf_c["power_kW"] == 41.7
+    assert perf_c["water_flow_lph"] == 7155
+    assert perf_c["eer"] == 2.5
+    assert perf_c["seer"] == 4.15
+
+    perf_h = data["performance"]["heating"]
+    assert perf_h["power_kW"] == 52.3
+    assert perf_h["cop"] == 3.37
+    assert perf_h["scop"] == 4.35
+    assert perf_h["seasonal_class"] == "A++"
+
+    assert data["acoustic"]["free_field_distance_m"] == 10.0
+    assert data["norm"]["uni_en_14511_applied"] is True
+
+    general = data["general"]
+    assert general["max_current_A"] == 56.0
+    assert general["sound_power_lw_dBA"] == 83.0
+    assert general["refrigerant"] == "R290"
+    assert general["weight_kg"] == 500.0
+
+    assert not [w for w in result.warnings if w["code"] == "family_mismatch"]
+    schema_validator.validate(data)
+
+
+def test_parse_geg_fixture_has_no_heating_block(
+    tmp_path: Path, schema_validator: Draft202012Validator
+) -> None:
+    fixture = write_geg(tmp_path / "geg.docx")
+    result = parse_docx(fixture)
+    data = result.data
+
+    assert data["family"] == "GEG"
+    assert data["type"] == "CS"
+
+    assert data["performance"]["cooling"]["power_kW"] == 210.0
+    assert data["performance"].get("heating", {}) == {} or all(
+        v is None for v in data["performance"].get("heating", {}).values()
+    )
+    assert "heating" not in data["conditions"] or data["conditions"]["heating"] == {}
+
+    assert data["general"]["refrigerant"] == "R454B"
+    assert data["general"]["sound_power_lw_dBA"] == 88.0
+
+    assert not [w for w in result.warnings if w["code"] == "family_mismatch"]
+    schema_validator.validate(data)
 
 
 def test_parse_docx_warns_when_no_designation(tmp_path: Path) -> None:

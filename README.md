@@ -120,6 +120,34 @@ python -m src.parser.docx_parser examples/sample_galletti.docx
 
 Affiche le JSON canonique partiel extrait du fichier.
 
+### Parsing PDF (preview)
+
+```bash
+python -m src.parser.pdf_parser examples/sample_galletti.pdf
+```
+
+### Synchronisation du decodeur de designation depuis Baserow
+
+La chaine de designation GALLETTI (`PLP052HS2B A000CE000I00110 0000000I000000000000`)
+encode les options par position. Pour les decoder, le parser lit
+`src/parser/designation_decoder.csv`. Ce CSV est genere a partir d'une
+table Baserow contenant les regles `(family, block, position, character)
+-> option metadata`:
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+python -m tools.baserow_to_decoder \
+    --table-id 941070 \
+    --output src/parser/designation_decoder.csv \
+    --field-map family=Famille block=Bloc position=Position \
+                character=Caractere code=Code category=Categorie \
+                label_fr=Libelle description_fr=Description tips_fr=Tips
+```
+
+Tant que le CSV est vide, chaque caractere non-zero produit une entree
+placeholder dans `options[]` et un warning `designation_decoder_missing`.
+
 ## Tests
 
 ```bash

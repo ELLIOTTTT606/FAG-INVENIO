@@ -6,6 +6,7 @@ token in the `Authorization: Token <token>` header.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -68,6 +69,28 @@ class BaserowClient:
         }
         response = self._client.get(f"/api/database/rows/table/{table_id}/", params=params)
         return self._unwrap(response)
+
+    def iter_all_rows(
+        self,
+        table_id: int,
+        *,
+        size: int = 200,
+        user_field_names: bool = True,
+    ) -> Iterator[dict[str, Any]]:
+        """Yield every row of `table_id`, walking pages until exhausted."""
+
+        page = 1
+        while True:
+            response = self.list_rows(
+                table_id, page=page, size=size, user_field_names=user_field_names
+            )
+            results = response.get("results") or []
+            for row in results:
+                if isinstance(row, dict):
+                    yield row
+            if not response.get("next") or not results:
+                return
+            page += 1
 
     def create_row(
         self,

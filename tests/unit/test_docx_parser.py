@@ -101,6 +101,13 @@ def test_parse_pac_fixture_extracts_cooling_and_heating(
     assert general["refrigerant"] == "R290"
     assert general["weight_kg"] == 500.0
 
+    assert data["designation_blocks"]["block1"] == "A000CE000I00110"
+    assert data["designation_blocks"]["block2"] == "0000000I000000000000"
+    options_by_pos = {(o["block"], o["position"]): o for o in data["options"]}
+    assert options_by_pos[(1, 0)]["character"] == "A"
+    assert all(o["selected"] is True for o in data["options"])
+    assert all(o["decoded"] is False for o in data["options"])  # template decoder is empty
+
     assert not [w for w in result.warnings if w["code"] == "family_mismatch"]
     schema_validator.validate(data)
 
@@ -123,6 +130,11 @@ def test_parse_geg_fixture_has_no_heating_block(
 
     assert data["general"]["refrigerant"] == "R454B"
     assert data["general"]["sound_power_lw_dBA"] == 88.0
+
+    # GEG fixture has designation "VLS202CS0A B000CE000I00220 0000000I0..." -> non-zero options
+    assert data["designation_blocks"]["block1"].startswith("B")
+    assert data["options"]
+    assert all(o["block"] in (1, 2) for o in data["options"])
 
     assert not [w for w in result.warnings if w["code"] == "family_mismatch"]
     schema_validator.validate(data)

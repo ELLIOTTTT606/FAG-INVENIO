@@ -57,10 +57,17 @@ def _extract_table_rows(table: Table) -> list[list[str]]:
     return [[cell.text.strip() for cell in row.cells] for row in table.rows]
 
 
-def parse_docx(path: Path | str, mapping_path: Path | str | None = None) -> ParseResult:
+def parse_docx(
+    path: Path | str,
+    mapping_path: Path | str | None = None,
+    *,
+    decoder_path: Path | str | None = None,
+) -> ParseResult:
     path = Path(path)
     if mapping_path is None:
         mapping_path = Path(__file__).parent / "mapping.csv"
+    if decoder_path is None:
+        decoder_path = Path(__file__).parent / "designation_decoder.csv"
     rules_by_section = index_rules(load_mapping(Path(mapping_path)))
 
     document = Document(str(path))
@@ -68,7 +75,7 @@ def parse_docx(path: Path | str, mapping_path: Path | str | None = None) -> Pars
     warnings: list[dict[str, str]] = data["warnings"]
 
     paragraphs = [p.text for p in document.paragraphs if p.text and p.text.strip()]
-    populate_designation(data, paragraphs, warnings)
+    populate_designation(data, paragraphs, warnings, decoder_path=Path(decoder_path))
 
     base_section: str | None = None
     for item in _iter_block_items(document):

@@ -208,6 +208,7 @@ def empty_payload(filename: str, *, fmt: str) -> dict[str, Any]:
         "size": "",
         "type": "HS",
         "designation_code": None,
+        "designation_blocks": None,
         "conditions": {},
         "performance": {},
         "hydraulics": {},
@@ -337,7 +338,23 @@ def infer_family(data: dict[str, Any], warnings: list[dict[str, str]]) -> None:
     data["family"] = family
 
 
-def populate_designation(data: dict[str, Any], paragraphs: list[str], warnings: list[dict[str, str]]) -> None:
+def populate_designation(
+    data: dict[str, Any],
+    paragraphs: list[str],
+    warnings: list[dict[str, str]],
+    *,
+    decoder_path: Path | None = None,
+) -> None:
+    """Detect designation, populate model/size/type, decode options blocks."""
+
+    # Local import to avoid a circular module dependency.
+    from src.parser.designation import (
+        Decoder,
+        decode_options,
+        load_decoder,
+        parse_blocks,
+    )
+
     designation_code, parts = detect_designation(paragraphs)
     data["designation_code"] = designation_code
     if parts:
@@ -346,7 +363,9 @@ def populate_designation(data: dict[str, Any], paragraphs: list[str], warnings: 
         heatcool = parts.get("heatcool") or "H"
         acoustic = parts.get("acoustic") or "S"
         data["type"] = f"{heatcool}{acoustic}"
+        family_hint = "PAC" if heatcool == "H" else "GEG"
     else:
+        family_hint = "PAC"
         warnings.append(
             {
                 "code": "designation_not_found",
@@ -354,3 +373,27 @@ def populate_designation(data: dict[str, Any], paragraphs: list[str], warnings: 
                 "field": "designation_code",
             }
         )
+
+    blocks = parse_blocks(designation_code)
+    data["designation_blocks"] = blocks if any(blocks.values()) else None
+
+    decoder: Decoder
+    if decoder_path is not None and decoder_path.exists():
+        decoder = load_decoder(decoder_path)
+    else:
+        decoder = Decoder.empty()
+
+    decoded = decode_options(designation_code, family_hint, decoder)
+    if decoded:
+        data["options"] = decoded
+        if not decoder.rules:
+            warnings.append(
+                {
+                    "code": "designation_decoder_missing",
+                    "message": (
+                        "Designation contains non-zero positions but no decoder is "
+                        "configured; options[] entries are placeholders."
+                    ),
+                    "field": "options",
+                }
+            )

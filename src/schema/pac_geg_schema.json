@@ -33,6 +33,15 @@
       "type": ["string", "null"],
       "description": "Chaine de designation brute extraite du document source."
     },
+    "designation_blocks": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Blocs d'options encodes dans la chaine de designation (raw).",
+      "properties": {
+        "block1": { "type": ["string", "null"] },
+        "block2": { "type": ["string", "null"] }
+      }
+    },
     "conditions": {
       "type": "object",
       "additionalProperties": false,
@@ -104,12 +113,16 @@
         "additionalProperties": false,
         "required": ["code", "label"],
         "properties": {
-          "code": { "type": "string", "minLength": 1, "maxLength": 4 },
+          "code": { "type": "string", "minLength": 1, "maxLength": 8 },
           "category": { "type": ["string", "null"] },
           "label": { "type": "string", "minLength": 1 },
           "description": { "type": ["string", "null"] },
           "tips": { "type": ["string", "null"] },
-          "selected": { "type": "boolean", "default": false }
+          "selected": { "type": "boolean", "default": false },
+          "block": { "type": ["integer", "null"], "enum": [1, 2, null] },
+          "position": { "type": ["integer", "null"], "minimum": 0 },
+          "character": { "type": ["string", "null"], "minLength": 1, "maxLength": 1 },
+          "decoded": { "type": "boolean", "default": false }
         }
       }
     },

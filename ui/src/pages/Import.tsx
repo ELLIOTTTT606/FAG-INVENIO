@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError, parseFile } from '../api/client'
 import type { ParseResponse } from '../api/types'
 import { Dropzone } from '../components/Dropzone'
 import { ExtractionSummary } from '../components/ExtractionSummary'
+import { rememberImport } from '../lib/sessionContext'
 
 type Status =
   | { kind: 'idle' }
@@ -17,6 +19,7 @@ export default function Import() {
     setStatus({ kind: 'parsing', filename: file.name })
     try {
       const result = await parseFile(file)
+      rememberImport(result.data)
       setStatus({ kind: 'ready', filename: file.name, result })
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Erreur réseau lors du parsing.'
@@ -69,10 +72,20 @@ export default function Import() {
       ) : null}
 
       {status.kind === 'ready' ? (
-        <ExtractionSummary
-          record={status.result.data}
-          warnings={status.result.warnings}
-        />
+        <>
+          <ExtractionSummary
+            record={status.result.data}
+            warnings={status.result.warnings}
+          />
+          <div className="flex justify-end">
+            <Link
+              to="/options"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
+            >
+              Continuer vers les options →
+            </Link>
+          </div>
+        </>
       ) : null}
     </section>
   )

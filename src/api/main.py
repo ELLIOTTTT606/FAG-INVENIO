@@ -14,6 +14,7 @@ from fastapi import Path as PathParam
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
 from src.services.contacts_repo import ContactsRepository, make_repository_from_env
+from src.services.options_catalog import OptionsCatalog, make_catalog_from_env
 
 app = FastAPI(
     title="INVENIO API",
@@ -28,6 +29,11 @@ DEPARTMENT_RE = re.compile(r"^(2A|2B|[0-9]{2,3})$")
 @lru_cache(maxsize=1)
 def get_contacts_repository() -> ContactsRepository:
     return make_repository_from_env()
+
+
+@lru_cache(maxsize=1)
+def get_options_catalog() -> OptionsCatalog:
+    return make_catalog_from_env()
 
 
 @app.get("/health", summary="Liveness probe")
@@ -99,3 +105,22 @@ def contacts_for_department(
             status_code=400, detail=f"Invalid department code: {department!r}."
         )
     return repo.get_contacts_for_department(department).to_dict()
+
+
+@app.get(
+    "/options",
+    summary="Catalog of options/accessories for a given (model, type, size)",
+)
+def options_for_machine(
+    model: str = Query(..., min_length=1),
+    type: str = Query(..., min_length=1, description="HS / HL / CS / CL"),
+    size: str = Query(..., min_length=1),
+    catalog: OptionsCatalog = Depends(get_options_catalog),
+) -> dict[str, Any]:
+    options = catalog.list_options(model=model, type_=type, size=size)
+    return {
+        "model": model,
+        "type": type,
+        "size": size,
+        "options": [opt.to_dict() for opt in options],
+    }

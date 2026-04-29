@@ -108,6 +108,11 @@ Les pages livrees a ce stade :
 - `/contacts` — recherche client (autocomplete debouncee), picker
   departement (recherche + groupage par region), contacts TCI / TCS /
   Solution Habitat charges depuis `/contacts/department/{dep}`.
+- `/options` — catalogue des options et accessoires pour le couple
+  (model, type, size) extrait de l'import, accordeons par categorie,
+  pre-cochage des options decodees de la designation, compteur global,
+  description + tips sur depliage. Charge depuis
+  `/options?model=&type=&size=`.
 
 Le backend utilise un `MockContactsRepository` quand `BASEROW_TOKEN`
 n'est pas defini (donnees factices mais plausibles), et bascule sur

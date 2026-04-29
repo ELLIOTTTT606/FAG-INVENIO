@@ -2,6 +2,7 @@ import { Link, Route, Routes } from 'react-router-dom'
 import Contacts from './pages/Contacts'
 import Home from './pages/Home'
 import Import from './pages/Import'
+import Options from './pages/Options'
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/import" element={<Import />} />
+          <Route path="/options" element={<Options />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -32,6 +34,9 @@ function Header() {
           </Link>
           <Link to="/import" className="hover:text-accent">
             Importer une fiche
+          </Link>
+          <Link to="/options" className="hover:text-accent">
+            Options
           </Link>
           <Link to="/contacts" className="hover:text-accent">
             Contacts

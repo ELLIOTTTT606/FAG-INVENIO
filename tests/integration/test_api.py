@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.main import app, get_contacts_repository
+from src.api.main import app, get_contacts_repository, get_options_catalog
 from src.services.contacts_repo import MockContactsRepository
+from src.services.options_catalog import MockOptionsCatalog
 from tests.fixtures.galletti_docx import build_pac_document
 from tests.fixtures.galletti_pdf import write_pac as write_pac_pdf
 
@@ -21,6 +22,15 @@ def mock_repo() -> MockContactsRepository:
     app.dependency_overrides[get_contacts_repository] = lambda: repo
     yield repo
     app.dependency_overrides.pop(get_contacts_repository, None)
+
+
+@pytest.fixture()
+def mock_catalog() -> MockOptionsCatalog:
+    catalog = MockOptionsCatalog()
+    get_options_catalog.cache_clear()
+    app.dependency_overrides[get_options_catalog] = lambda: catalog
+    yield catalog
+    app.dependency_overrides.pop(get_options_catalog, None)
 
 
 @pytest.fixture()
@@ -135,6 +145,36 @@ def test_contacts_endpoint_rejects_invalid_department_format() -> None:
     client = TestClient(app)
     response = client.get("/contacts/department/foo")
     assert response.status_code == 400
+
+
+def test_options_endpoint_returns_pac_catalog(mock_catalog: MockOptionsCatalog) -> None:
+    _ = mock_catalog
+    client = TestClient(app)
+    response = client.get("/options", params={"model": "PLP", "type": "HS", "size": "052"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["model"] == "PLP" and body["type"] == "HS" and body["size"] == "052"
+    codes = {row["code"] for row in body["options"]}
+    assert {"0", "1", "P", "C", "L"}.issubset(codes)
+    categories = {row["category"] for row in body["options"]}
+    assert "Kit antigel" in categories  # PAC-only
+
+
+def test_options_endpoint_returns_geg_catalog(mock_catalog: MockOptionsCatalog) -> None:
+    _ = mock_catalog
+    client = TestClient(app)
+    response = client.get("/options", params={"model": "VLS", "type": "CS", "size": "202"})
+    assert response.status_code == 200
+    body = response.json()
+    categories = {row["category"] for row in body["options"]}
+    assert "Recuperation de chaleur" in categories
+    assert "Kit antigel" not in categories
+
+
+def test_options_endpoint_requires_all_query_params() -> None:
+    client = TestClient(app)
+    response = client.get("/options", params={"model": "PLP", "type": "HS"})
+    assert response.status_code == 422  # missing 'size'
 
 
 def test_parse_real_sample_file_if_present() -> None:

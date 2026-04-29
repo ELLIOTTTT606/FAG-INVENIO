@@ -39,6 +39,38 @@ jobs:
       - name: Pytest
         run: pytest --cov=src --cov=tools --cov-report=term-missing
 
+  ui:
+    name: UI lint + typecheck + tests + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   security:
     name: Security scan
     runs-on: ubuntu-latest

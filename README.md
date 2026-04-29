@@ -57,7 +57,7 @@ Modules livres dans ce sprint :
 ## Prerequis
 
 - Python 3.11 ou plus.
-- (Optionnel) Node.js 20 + pour le futur frontend.
+- Node.js 22+ pour le frontend `ui/`.
 - (Optionnel) Playwright + Chromium pour la generation PDF (a installer
   separement : `pip install -e ".[pdf]" && playwright install chromium`).
 
@@ -89,6 +89,22 @@ uvicorn src.api.main:app --reload --port 8000
 # -> http://localhost:8000/health
 # -> http://localhost:8000/docs (OpenAPI)
 ```
+
+Frontend React (dev) :
+
+```bash
+cd ui
+npm install
+npm run dev
+# -> http://localhost:5173
+# Le serveur Vite proxifie /parse et /health vers http://localhost:8000.
+```
+
+Les pages livrees a ce stade :
+
+- `/` — Home, CTA "Generer ma fiche".
+- `/import` — dropzone .docx / .pdf, appel `/parse/{docx,pdf}`, resume des
+  champs extraits avec icones ✓ / ⚠, options decodees, alertes warnings.
 
 ## Outils CLI
 
@@ -150,12 +166,24 @@ placeholder dans `options[]` et un warning `designation_decoder_missing`.
 
 ## Tests
 
+Backend Python :
+
 ```bash
 pytest                         # tous les tests
 pytest tests/unit -q           # uniquement les tests unitaires
 pytest --cov=src --cov=tools   # avec couverture
 ruff check .                   # lint
 mypy src tools                 # typecheck
+```
+
+Frontend React :
+
+```bash
+cd ui
+npm run typecheck              # tsc --noEmit
+npm run lint                   # eslint
+npm test                       # vitest run
+npm run build                  # build production
 ```
 
 ## Structure du depot
@@ -179,8 +207,18 @@ FAG-INVENIO/
 |  |- integration/
 |  `- fixtures/
 |- examples/
+|- ui/
+|  |- src/
+|  |  |- pages/                 # Home.tsx, Import.tsx
+|  |  |- components/             # Dropzone, ExtractionSummary
+|  |  |- api/                    # client + types
+|  |  |- styles/                 # tokens (Tailwind)
+|  |  `- test/                   # vitest tests + fixtures
+|  |- index.html
+|  |- vite.config.ts
+|  |- tailwind.config.ts
+|  `- package.json
 |- pyproject.toml
-|- package.json
 |- .env.example
 |- .gitignore
 `- README.md

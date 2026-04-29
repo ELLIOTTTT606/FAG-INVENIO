@@ -24,6 +24,9 @@ htmlcov/
 node_modules/
 .vite/
 dist-ssr/
+ui/dist/
+ui/coverage/
+*.tsbuildinfo
 
 # IDE
 .idea/

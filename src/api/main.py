@@ -2,22 +2,32 @@
 
 from __future__ import annotations
 
+import re
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, UploadFile
+from fastapi import Path as PathParam
 
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
+from src.services.contacts_repo import ContactsRepository, make_repository_from_env
 
 app = FastAPI(
     title="INVENIO API",
-    version="0.2.0",
+    version="0.3.0",
     description="France Air - Migration GALLETTI -> INVENIO. Endpoints MVP.",
 )
 
 MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+DEPARTMENT_RE = re.compile(r"^(2A|2B|[0-9]{2,3})$")
+
+
+@lru_cache(maxsize=1)
+def get_contacts_repository() -> ContactsRepository:
+    return make_repository_from_env()
 
 
 @app.get("/health", summary="Liveness probe")
@@ -62,3 +72,30 @@ async def parse_docx_endpoint(file: UploadFile) -> dict[str, Any]:
 )
 async def parse_pdf_endpoint(file: UploadFile) -> dict[str, Any]:
     return _parse_upload(file, ".pdf")
+
+
+@app.get(
+    "/clients/search",
+    summary="Autocomplete clients by name, code, or postal code (>=2 chars)",
+)
+def search_clients(
+    q: str = Query(..., min_length=0, description="Free-text query."),
+    limit: int = Query(10, ge=1, le=50),
+    repo: ContactsRepository = Depends(get_contacts_repository),
+) -> list[dict[str, str]]:
+    return [c.to_dict() for c in repo.search_clients(q, limit=limit)]
+
+
+@app.get(
+    "/contacts/department/{department}",
+    summary="TCI / TCS / Solution Habitat for a given department code",
+)
+def contacts_for_department(
+    department: str = PathParam(..., description="Code department, e.g. '69', '2A'"),
+    repo: ContactsRepository = Depends(get_contacts_repository),
+) -> dict[str, Any]:
+    if not DEPARTMENT_RE.match(department):
+        raise HTTPException(
+            status_code=400, detail=f"Invalid department code: {department!r}."
+        )
+    return repo.get_contacts_for_department(department).to_dict()

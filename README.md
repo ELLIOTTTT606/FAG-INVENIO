@@ -105,6 +105,13 @@ Les pages livrees a ce stade :
 - `/` — Home, CTA "Generer ma fiche".
 - `/import` — dropzone .docx / .pdf, appel `/parse/{docx,pdf}`, resume des
   champs extraits avec icones ✓ / ⚠, options decodees, alertes warnings.
+- `/contacts` — recherche client (autocomplete debouncee), picker
+  departement (recherche + groupage par region), contacts TCI / TCS /
+  Solution Habitat charges depuis `/contacts/department/{dep}`.
+
+Le backend utilise un `MockContactsRepository` quand `BASEROW_TOKEN`
+n'est pas defini (donnees factices mais plausibles), et bascule sur
+`BaserowContactsRepository` lorsque le token et l'URL sont presents.
 
 ## Outils CLI
 

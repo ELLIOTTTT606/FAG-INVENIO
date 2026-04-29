@@ -8,9 +8,19 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.main import app
+from src.api.main import app, get_contacts_repository
+from src.services.contacts_repo import MockContactsRepository
 from tests.fixtures.galletti_docx import build_pac_document
 from tests.fixtures.galletti_pdf import write_pac as write_pac_pdf
+
+
+@pytest.fixture()
+def mock_repo() -> MockContactsRepository:
+    repo = MockContactsRepository()
+    get_contacts_repository.cache_clear()
+    app.dependency_overrides[get_contacts_repository] = lambda: repo
+    yield repo
+    app.dependency_overrides.pop(get_contacts_repository, None)
 
 
 @pytest.fixture()
@@ -74,6 +84,57 @@ def test_parse_pdf_endpoint_rejects_docx() -> None:
     files = {"file": ("bad.docx", b"hello", "application/octet-stream")}
     response = client.post("/parse/pdf", files=files)
     assert response.status_code == 415
+
+
+def test_search_clients_requires_at_least_two_characters(mock_repo: MockContactsRepository) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.get("/clients/search", params={"q": "a"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_search_clients_returns_matching_records(mock_repo: MockContactsRepository) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.get("/clients/search", params={"q": "lyon"})
+    assert response.status_code == 200
+    body = response.json()
+    assert any("Lyon" in row["client_name"] for row in body)
+    assert all(set(row.keys()) >= {"client_code", "client_name", "postal_code", "department"} for row in body)
+
+
+def test_contacts_endpoint_returns_full_payload_for_known_department(
+    mock_repo: MockContactsRepository,
+) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.get("/contacts/department/69")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["department"] == "69"
+    assert body["tci"]["name"]
+    assert body["tcs"]["email"].endswith("@france-air.com")
+    assert body["solution"]["phone"]
+
+
+def test_contacts_endpoint_returns_solution_only_for_unknown_department(
+    mock_repo: MockContactsRepository,
+) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.get("/contacts/department/88")
+    body = response.json()
+    assert body["department"] == "88"
+    assert body["tci"] is None
+    assert body["tcs"] is None
+    assert body["solution"] is not None
+
+
+def test_contacts_endpoint_rejects_invalid_department_format() -> None:
+    client = TestClient(app)
+    response = client.get("/contacts/department/foo")
+    assert response.status_code == 400
 
 
 def test_parse_real_sample_file_if_present() -> None:

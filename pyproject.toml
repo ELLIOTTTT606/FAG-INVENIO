@@ -71,7 +71,8 @@ extend-exclude = ["examples", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "C4"]
-ignore = ["E501"]
+# B008: FastAPI relies on Depends/Path/Query/UploadFile in defaults; allow.
+ignore = ["E501", "B008"]
 
 [tool.mypy]
 python_version = "3.11"

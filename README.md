@@ -58,8 +58,9 @@ Modules livres dans ce sprint :
 
 - Python 3.11 ou plus.
 - Node.js 22+ pour le frontend `ui/`.
-- (Optionnel) Playwright + Chromium pour la generation PDF (a installer
-  separement : `pip install -e ".[pdf]" && playwright install chromium`).
+- Pour la generation PDF (deja inclus dans les dependances) WeasyPrint
+  necessite quelques libs systeme : sur Debian/Ubuntu
+  `sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0`.
 
 ## Installation
 
@@ -113,6 +114,10 @@ Les pages livrees a ce stade :
   pre-cochage des options decodees de la designation, compteur global,
   description + tips sur depliage. Charge depuis
   `/options?model=&type=&size=`.
+- `/generate` — apercu de la fiche dans une iframe (HTML rendu par
+  `/generate/preview`) et bouton "Telecharger le PDF" qui appelle
+  `/generate/pdf` (rendu via WeasyPrint, sommaire cliquable, bookmarks
+  PDF, page de garde France Air).
 
 Le backend utilise un `MockContactsRepository` quand `BASEROW_TOKEN`
 n'est pas defini (donnees factices mais plausibles), et bascule sur

@@ -177,6 +177,63 @@ def test_options_endpoint_requires_all_query_params() -> None:
     assert response.status_code == 422  # missing 'size'
 
 
+def _generation_payload() -> dict:
+    return {
+        "record": {
+            "family": "PAC",
+            "model": "PLP",
+            "size": "052",
+            "type": "HS",
+            "designation_code": "PLP052HS2B A000CE000I00110 0000000I000000000000",
+            "designation_blocks": None,
+            "conditions": {"cooling": {"water_in_C": 12.0}, "heating": {"water_in_C": 40.0}},
+            "performance": {"cooling": {"power_kW": 41.7}, "heating": {"power_kW": 52.3}},
+            "general": {"refrigerant": "R290"},
+            "options": [
+                {
+                    "code": "P",
+                    "category": "Kit antigel",
+                    "label": "Protection echangeur",
+                    "selected": True,
+                    "decoded": True,
+                }
+            ],
+            "warnings": [],
+            "acoustic": {},
+            "norm": {},
+            "hydraulics": {},
+        },
+        "contacts": {
+            "department": "69",
+            "tci": {"name": "Camille", "email": "c@x.com", "phone": "0472001234"},
+            "tcs": None,
+            "solution": None,
+        },
+        "selected_option_codes": ["P"],
+        "document_reference": "INV-DEMO",
+    }
+
+
+def test_generate_preview_returns_html_with_selected_options() -> None:
+    client = TestClient(app)
+    response = client.post("/generate/preview", json=_generation_payload())
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    body = response.text
+    assert "PLP" in body and "052" in body
+    assert "Protection echangeur" in body
+    assert "INV-DEMO" in body
+
+
+def test_generate_pdf_returns_pdf_bytes_and_filename_header() -> None:
+    client = TestClient(app)
+    response = client.post("/generate/pdf", json=_generation_payload())
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert "INVENIO-plp-052-hs.pdf" in response.headers["content-disposition"]
+    assert response.content.startswith(b"%PDF-")
+
+
 def test_parse_real_sample_file_if_present() -> None:
     sample = Path("examples/sample_galletti.docx")
     if not sample.exists():

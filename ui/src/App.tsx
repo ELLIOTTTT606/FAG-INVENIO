@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router-dom'
 import Contacts from './pages/Contacts'
+import Generate from './pages/Generate'
 import Home from './pages/Home'
 import Import from './pages/Import'
 import Options from './pages/Options'
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/import" element={<Import />} />
           <Route path="/options" element={<Options />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/generate" element={<Generate />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -40,6 +42,9 @@ function Header() {
           </Link>
           <Link to="/contacts" className="hover:text-accent">
             Contacts
+          </Link>
+          <Link to="/generate" className="hover:text-accent">
+            Générer
           </Link>
         </nav>
       </div>

@@ -10,11 +10,20 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, UploadFile
 from fastapi import Path as PathParam
+from fastapi.responses import HTMLResponse, Response
+from pydantic import BaseModel, Field
 
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
 from src.services.contacts_repo import ContactsRepository, make_repository_from_env
 from src.services.options_catalog import OptionsCatalog, make_catalog_from_env
+from src.services.pdf_generator import (
+    GenerationContext,
+    PdfEngineUnavailableError,
+    render_html,
+    render_pdf,
+    suggested_filename,
+)
 
 app = FastAPI(
     title="INVENIO API",
@@ -105,6 +114,55 @@ def contacts_for_department(
             status_code=400, detail=f"Invalid department code: {department!r}."
         )
     return repo.get_contacts_for_department(department).to_dict()
+
+
+class GenerationRequest(BaseModel):
+    """Payload sent by the UI to render the fiche."""
+
+    record: dict[str, Any] = Field(..., description="Canonical record from /parse/*")
+    contacts: dict[str, Any] | None = None
+    selected_option_codes: list[str] = Field(default_factory=list)
+    document_reference: str | None = None
+
+
+def _build_generation_context(payload: GenerationRequest) -> GenerationContext:
+    return GenerationContext(
+        record=payload.record,
+        contacts=payload.contacts,
+        selected_option_codes=tuple(payload.selected_option_codes),
+        document_reference=payload.document_reference,
+    )
+
+
+@app.post(
+    "/generate/preview",
+    summary="Render the fiche as a self-contained HTML preview",
+    response_class=HTMLResponse,
+)
+def generate_preview(payload: GenerationRequest) -> HTMLResponse:
+    html = render_html(_build_generation_context(payload))
+    return HTMLResponse(content=html, status_code=200)
+
+
+@app.post(
+    "/generate/pdf",
+    summary="Render the fiche as a PDF (requires WeasyPrint)",
+)
+def generate_pdf_endpoint(payload: GenerationRequest) -> Response:
+    try:
+        pdf_bytes = render_pdf(_build_generation_context(payload))
+    except PdfEngineUnavailableError as err:
+        raise HTTPException(
+            status_code=503,
+            detail="PDF engine unavailable. Install weasyprint to enable /generate/pdf.",
+        ) from err
+
+    filename = suggested_filename(payload.record)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get(

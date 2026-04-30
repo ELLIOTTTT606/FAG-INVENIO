@@ -77,12 +77,18 @@ export default function Import() {
             record={status.result.data}
             warnings={status.result.warnings}
           />
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-3">
             <Link
               to="/options"
+              className="inline-flex items-center gap-2 rounded-full border border-accent/40 px-6 py-3 text-sm font-medium text-accent transition hover:bg-accent-subtle/40"
+            >
+              Choisir les options →
+            </Link>
+            <Link
+              to="/generate"
               className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
             >
-              Continuer vers les options →
+              Générer la fiche →
             </Link>
           </div>
         </>

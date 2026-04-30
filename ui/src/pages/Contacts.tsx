@@ -5,6 +5,7 @@ import { ClientSearch } from '../components/ClientSearch'
 import { ContactCard } from '../components/ContactCard'
 import { DepartmentPicker } from '../components/DepartmentPicker'
 import { findDepartment } from '../data/departments'
+import { rememberContacts } from '../lib/sessionContext'
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -26,6 +27,7 @@ export default function Contacts() {
       .then((next) => {
         if (controller.signal.aborted) return
         setContacts(next)
+        rememberContacts(next)
         setStatus('ready')
       })
       .catch((err) => {

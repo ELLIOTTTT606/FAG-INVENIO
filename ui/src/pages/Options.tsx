@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineContext } from '../api/options'
 import { fetchOptions, groupByCategory, type OptionsResponse } from '../api/options'
 import { OptionsAccordion } from '../components/OptionsAccordion'
-import { readImport } from '../lib/sessionContext'
+import { readImport, readSelectedOptions, rememberSelectedOptions } from '../lib/sessionContext'
 
 type Status = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -30,7 +30,7 @@ export default function Options() {
 
   const [response, setResponse] = useState<OptionsResponse | null>(null)
   const [status, setStatus] = useState<Status>('idle')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(readSelectedOptions()))
 
   useEffect(() => {
     if (!machine) {
@@ -70,6 +70,10 @@ export default function Options() {
   )
   const totalSelected = selected.size
   const totalOptions = response?.options.length ?? 0
+
+  useEffect(() => {
+    rememberSelectedOptions(Array.from(selected))
+  }, [selected])
 
   const toggle = (code: string) => {
     setSelected((prev) => {
@@ -141,6 +145,17 @@ export default function Options() {
         <p role="alert" className="text-sm text-danger">
           Le catalogue d'options n'a pas pu être chargé.
         </p>
+      ) : null}
+
+      {status === 'ready' && grouped.length > 0 ? (
+        <div className="flex justify-end">
+          <Link
+            to="/generate"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
+          >
+            Continuer vers la génération →
+          </Link>
+        </div>
       ) : null}
 
       {status === 'ready' ? (

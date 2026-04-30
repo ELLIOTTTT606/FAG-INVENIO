@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fiche de selection - {{ record.model }}{{ record.size }}{{ record.type }}</title>
+<style>{{ stylesheet }}</style>
+</head>
+<body>
+
+{# ----- Page de garde ----- #}
+<section class="cover">
+  <div>
+    <header class="cover-header">
+      <div class="brand">France Air<small>Solutions Habitat</small></div>
+      <div class="brand">INVENIO<small>Sélection automatisée</small></div>
+    </header>
+    <div class="cover-body">
+      <p class="cover-eyebrow">{{ record.family }} - Fiche de sélection technique</p>
+      <h1 class="cover-title" data-machine="{{ record.model }}{{ record.size }} {{ record.type }}">{{ record.model }} {{ record.size }} <span style="color:#2F5EFF;">{{ record.type }}</span></h1>
+      <p class="cover-subtitle">{% if record.family == 'PAC' %}Pompe à chaleur réversible{% else %}Groupe d'eau glacée{% endif %}</p>
+
+      <dl class="cover-meta">
+        <div>
+          <dt>Désignation complète</dt>
+          <dd>{% if record.designation_code %}{{ record.designation_code }}{% else %}<span class="missing">Donnée non disponible</span>{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Réfrigérant</dt>
+          <dd>{{ value(record.general.refrigerant) }}</dd>
+        </div>
+        <div>
+          <dt>Alimentation</dt>
+          <dd>{{ value(record.general.supply) }}</dd>
+        </div>
+        <div>
+          <dt>Poids</dt>
+          <dd>{{ value(record.general.weight_kg, 'kg') }}</dd>
+        </div>
+        <div>
+          <dt>Date d'édition</dt>
+          <dd>{{ generated_at_fr }}</dd>
+        </div>
+        <div>
+          <dt>Référence INVENIO</dt>
+          <dd>{{ document_reference }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+  <footer class="cover-footer">
+    Établi par Solutions Habitat - Ingénieur d'Études · 04 48 40 40 40 · solutions.habitat@france-air.com<br>
+    France Air - 383 rue des Barronnières - 01700 Beynost
+  </footer>
+</section>
+
+{# ----- Sommaire cliquable ----- #}
+<section class="section">
+  <p class="section-eyebrow">Page 2</p>
+  <h1 class="section-title" id="toc">Sommaire</h1>
+  <ul class="toc">
+    <li><a href="#performances">Données techniques de sélection</a></li>
+    <li><a href="#options">Options retenues</a></li>
+    <li><a href="#contacts">Contacts France Air</a></li>
+  </ul>
+
+  {% if warnings %}
+    <div class="warning-banner">
+      <strong>{{ warnings|length }} avertissement(s) lors de l'extraction.</strong>
+      <ul style="margin: 1mm 0 0 4mm; padding: 0;">
+        {% for w in warnings[:5] %}
+          <li>{{ w.code }}{% if w.field %} ({{ w.field }}){% endif %} – {{ w.message }}</li>
+        {% endfor %}
+        {% if warnings|length > 5 %}<li>+ {{ warnings|length - 5 }} autres…</li>{% endif %}
+      </ul>
+    </div>
+  {% endif %}
+</section>
+
+{# ----- Données techniques ----- #}
+<section class="section">
+  <p class="section-eyebrow">Section 1</p>
+  <h1 class="section-title" id="performances">Données techniques de sélection</h1>
+
+  <div class="compare">
+    <div class="compare-card cooling">
+      <h2 class="subsection-title">Refroidissement</h2>
+      <h3>Conditions</h3>
+      <table class="data">
+        <tbody>
+          <tr><td>T° entrée eau utilisation</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.cooling.water_in_C) }}</td></tr>
+          <tr><td>T° sortie eau utilisation</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.cooling.water_out_C) }}</td></tr>
+          <tr><td>T° air extérieur source</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.cooling.air_temp_C) }}</td></tr>
+          <tr><td>Charge</td><td class="unit">%</td><td class="value">{{ value(record.conditions.cooling.load_percent) }}</td></tr>
+        </tbody>
+      </table>
+      <h3>Performances</h3>
+      <table class="data">
+        <tbody>
+          <tr><td>Puissance frigorifique</td><td class="unit">kW</td><td class="value">{{ value(record.performance.cooling.power_kW) }}</td></tr>
+          <tr><td>Débit eau utilisateur</td><td class="unit">l/h</td><td class="value">{{ value(record.performance.cooling.water_flow_lph) }}</td></tr>
+          <tr><td>Perte de charge</td><td class="unit">kPa</td><td class="value">{{ value(record.performance.cooling.pressure_drop_kPa) }}</td></tr>
+          <tr><td>Puissance absorbée totale</td><td class="unit">kW</td><td class="value">{{ value(record.performance.cooling.total_power_kW) }}</td></tr>
+          <tr><td>Courant absorbé total</td><td class="unit">A</td><td class="value">{{ value(record.performance.cooling.total_current_A) }}</td></tr>
+          <tr><td>EER</td><td class="unit">W/W</td><td class="value">{{ value(record.performance.cooling.eer) }}</td></tr>
+          <tr><td>SEER</td><td class="unit">Wh/Wh</td><td class="value">{{ value(record.performance.cooling.seer) }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="compare-card heating">
+      <h2 class="subsection-title">Chauffage</h2>
+      {% if record.family == 'PAC' %}
+      <h3>Conditions</h3>
+      <table class="data">
+        <tbody>
+          <tr><td>T° entrée eau utilisation</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.heating.water_in_C) }}</td></tr>
+          <tr><td>T° sortie eau utilisation</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.heating.water_out_C) }}</td></tr>
+          <tr><td>T° air extérieur source</td><td class="unit">°C</td><td class="value">{{ value(record.conditions.heating.air_temp_C) }}</td></tr>
+          <tr><td>Charge</td><td class="unit">%</td><td class="value">{{ value(record.conditions.heating.load_percent) }}</td></tr>
+        </tbody>
+      </table>
+      <h3>Performances</h3>
+      <table class="data">
+        <tbody>
+          <tr><td>Puissance calorifique</td><td class="unit">kW</td><td class="value">{{ value(record.performance.heating.power_kW) }}</td></tr>
+          <tr><td>Débit eau utilisateur</td><td class="unit">l/h</td><td class="value">{{ value(record.performance.heating.water_flow_lph) }}</td></tr>
+          <tr><td>Perte de charge</td><td class="unit">kPa</td><td class="value">{{ value(record.performance.heating.pressure_drop_kPa) }}</td></tr>
+          <tr><td>Puissance absorbée totale</td><td class="unit">kW</td><td class="value">{{ value(record.performance.heating.total_power_kW) }}</td></tr>
+          <tr><td>Courant absorbé total</td><td class="unit">A</td><td class="value">{{ value(record.performance.heating.total_current_A) }}</td></tr>
+          <tr><td>COP</td><td class="unit">W/W</td><td class="value">{{ value(record.performance.heating.cop) }}</td></tr>
+          <tr><td>SCOP</td><td class="unit">Wh/Wh</td><td class="value">{{ value(record.performance.heating.scop) }}</td></tr>
+          <tr><td>Classe saisonnière</td><td class="unit"></td><td class="value">{{ value(record.performance.heating.seasonal_class) }}</td></tr>
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:#64748B; font-style: italic; padding: 8mm 0;">Mode chauffage non applicable pour un groupe d'eau glacée.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <h2 class="subsection-title">Données générales</h2>
+  <table class="data">
+    <thead><tr><th>Donnée</th><th class="unit">Unité</th><th style="text-align:right;">Valeur</th></tr></thead>
+    <tbody>
+      <tr><td>Courant maximum (FLA)</td><td class="unit">A</td><td class="value">{{ value(record.general.max_current_A) }}</td></tr>
+      <tr><td>Courant de démarrage (LRA)</td><td class="unit">A</td><td class="value">{{ value(record.general.starting_current_A) }}</td></tr>
+      <tr><td>Niveau puissance acoustique Lw</td><td class="unit">dB(A)</td><td class="value">{{ value(record.general.sound_power_lw_dBA) }}</td></tr>
+      <tr><td>Niveau pression acoustique Lp</td><td class="unit">dB(A)</td><td class="value">{{ value(record.general.sound_pressure_lp_dBA) }}</td></tr>
+      <tr><td>Débit air source</td><td class="unit">m³/h</td><td class="value">{{ value(record.general.source_air_flow_m3h) }}</td></tr>
+      <tr><td>Réfrigérant</td><td class="unit"></td><td class="value">{{ value(record.general.refrigerant) }}</td></tr>
+      <tr><td>GWP</td><td class="unit"></td><td class="value">{{ value(record.general.gwp) }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+{# ----- Options ----- #}
+<section class="section">
+  <p class="section-eyebrow">Section 2</p>
+  <h1 class="section-title" id="options">Options retenues</h1>
+  {% if selected_options %}
+    <p style="margin-bottom: 5mm; color: #475569;">
+      {{ selected_options|length }} option(s) sélectionnée(s) sur cette configuration.
+    </p>
+    <ul class="option-list">
+      {% for opt in selected_options %}
+      <li>
+        <div><code>{{ opt.code }}</code></div>
+        <div>
+          <div class="label">{{ opt.label }}</div>
+          <div class="meta">
+            {{ opt.category or 'Non classée' }}
+            {% set price = opt.get('price_eur') %}
+            {% if price is not none %} · {{ '%.2f'|format(price) }} €{% endif %}
+            {% set block = opt.get('block') %}
+            {% set position = opt.get('position') %}
+            {% if not opt.get('decoded') and block %} · placeholder (B{{ block }}P{{ '%02d'|format(position) }}){% endif %}
+          </div>
+          {% if opt.description %}<div class="meta">{{ opt.description }}</div>{% endif %}
+          {% if opt.tips %}<div class="tips">💡 {{ opt.tips }}</div>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p style="color:#64748B; font-style: italic;">Aucune option additionnelle n'a été sélectionnée pour cette fiche.</p>
+  {% endif %}
+</section>
+
+{# ----- Contacts ----- #}
+<section class="section">
+  <p class="section-eyebrow">Section 3</p>
+  <h1 class="section-title" id="contacts">Contacts France Air</h1>
+  {% if contacts %}
+    <p style="margin-bottom: 5mm; color: #475569;">
+      Département <strong>{{ contacts.department }}</strong>.
+    </p>
+    <div class="contacts">
+      {% for role, contact in [('TCI', contacts.tci), ('TCS', contacts.tcs), ('Solution Habitat', contacts.solution)] %}
+      <div class="contact-card">
+        <h4>{{ role }}</h4>
+        {% if contact %}
+          {% if contact.name %}<div class="name">{{ contact.name }}</div>{% endif %}
+          {% if contact.email %}<div class="email">{{ contact.email }}</div>{% endif %}
+          {% if contact.phone %}<div class="phone">{{ contact.phone }}</div>{% endif %}
+        {% else %}
+          <div class="missing">Non assigné pour ce département.</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p style="color:#64748B; font-style: italic;">Aucun département sélectionné, contacts non rendus.</p>
+  {% endif %}
+</section>
+
+</body>
+</html>

@@ -106,9 +106,10 @@ Les pages livrees a ce stade :
 - `/` — Home, CTA "Generer ma fiche".
 - `/import` — dropzone .docx / .pdf, appel `/parse/{docx,pdf}`, resume des
   champs extraits avec icones ✓ / ⚠, options decodees, alertes warnings.
-- `/contacts` — recherche client (autocomplete debouncee), picker
-  departement (recherche + groupage par region), contacts TCI / TCS /
-  Solution Habitat charges depuis `/contacts/department/{dep}`.
+- `/contacts` — recherche client (autocomplete debouncee), carte SVG
+  France interactive (centroides projetes des 96 departements + 5 DROM
+  cliquables) doublee d'un picker liste/recherche. Contacts TCI / TCS
+  / Solution Habitat charges depuis `/contacts/department/{dep}`.
   Bouton "+ Nouveau client" ouvre un modal qui POSTe sur `/clients`
   (auto-deduit le departement depuis le code postal, override
   possible).

@@ -4,6 +4,7 @@ import { fetchDepartmentContacts } from '../api/contacts'
 import { ClientSearch } from '../components/ClientSearch'
 import { ContactCard } from '../components/ContactCard'
 import { DepartmentPicker } from '../components/DepartmentPicker'
+import { FranceMap } from '../components/FranceMap'
 import { NewClientModal } from '../components/NewClientModal'
 import { findDepartment } from '../data/departments'
 import { rememberContacts } from '../lib/sessionContext'
@@ -88,6 +89,8 @@ export default function Contacts() {
               </p>
             </div>
           ) : null}
+
+          <FranceMap selected={department} onSelect={setDepartment} />
 
           <DepartmentPicker selected={department} onSelect={setDepartment} />
         </div>

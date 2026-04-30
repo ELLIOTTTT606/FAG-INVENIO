@@ -31,6 +31,26 @@ export async function searchClients(query: string, signal?: AbortSignal): Promis
   return (await response.json()) as Client[]
 }
 
+export async function createClient(input: Client, signal?: AbortSignal): Promise<Client> {
+  const response = await fetch('/clients', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+    signal,
+  })
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    if (response.status === 409) {
+      throw new ApiError(detail || 'Ce code client existe déjà.', 409)
+    }
+    if (response.status === 422 || response.status === 400) {
+      throw new ApiError(detail || 'Données invalides.', response.status)
+    }
+    throw new ApiError(detail || `Création impossible (${response.status}).`, response.status)
+  }
+  return (await response.json()) as Client
+}
+
 export async function fetchDepartmentContacts(
   department: string,
   signal?: AbortSignal,

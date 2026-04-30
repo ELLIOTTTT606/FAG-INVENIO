@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from src.services.baserow_client import BaserowClient, BaserowConfig
 from src.services.contacts_repo import (
@@ -11,6 +12,7 @@ from src.services.contacts_repo import (
     Client,
     Contact,
     ContactsForDepartment,
+    DuplicateClientError,
     MockContactsRepository,
 )
 
@@ -121,3 +123,62 @@ def test_client_to_dict_round_trip() -> None:
         "postal_code": "75001",
         "department": "75",
     }
+
+
+def test_mock_create_client_appends_and_normalizes_code() -> None:
+    repo = MockContactsRepository()
+    created = repo.create_client(Client("c999", "  New Co ", "75015", "75"))
+    assert created.client_code == "C999"
+    assert created.client_name == "New Co"
+    assert any(c.client_code == "C999" for c in repo.search_clients("c999"))
+
+
+def test_mock_create_client_rejects_duplicate_code() -> None:
+    repo = MockContactsRepository()
+    repo.create_client(Client("C999", "First", "75015", "75"))
+    with pytest.raises(DuplicateClientError):
+        repo.create_client(Client("c999", "Second", "75015", "75"))
+
+
+def test_mock_create_client_rejects_blank_code() -> None:
+    repo = MockContactsRepository()
+    with pytest.raises(ValueError):
+        repo.create_client(Client(" ", "X", "75015", "75"))
+
+
+def test_baserow_create_client_posts_when_code_is_unique() -> None:
+    posted: dict[str, object] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"results": [], "next": None})
+        posted["url"] = str(request.url)
+        posted["body"] = request.read()
+        return httpx.Response(200, json={"id": 7, "client_code": "C42"})
+
+    repo = BaserowContactsRepository(
+        client=_baserow_client(httpx.MockTransport(handle)),
+        tables=BaserowTables(clients=10, contacts_force_vente=20, contacts_solution=30),
+    )
+    created = repo.create_client(Client("c42", "Acme", "69001", "69"))
+    assert created.client_code == "C42"
+    body = posted["body"]
+    assert isinstance(body, bytes)
+    assert b'"client_name":"Acme"' in body or b'"client_name": "Acme"' in body
+    assert b'"client_code":"C42"' in body or b'"client_code": "C42"' in body
+
+
+def test_baserow_create_client_rejects_duplicate_via_dataset() -> None:
+    rows = [{"client_code": "C42", "client_name": "Existing"}]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"results": rows, "next": None})
+        return httpx.Response(500, text="should not POST when duplicate")
+
+    repo = BaserowContactsRepository(
+        client=_baserow_client(httpx.MockTransport(handle)),
+        tables=BaserowTables(clients=10, contacts_force_vente=20, contacts_solution=30),
+    )
+    with pytest.raises(DuplicateClientError):
+        repo.create_client(Client("c42", "Twin", "69001", "69"))

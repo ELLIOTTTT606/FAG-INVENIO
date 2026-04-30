@@ -4,6 +4,7 @@ import { fetchDepartmentContacts } from '../api/contacts'
 import { ClientSearch } from '../components/ClientSearch'
 import { ContactCard } from '../components/ContactCard'
 import { DepartmentPicker } from '../components/DepartmentPicker'
+import { NewClientModal } from '../components/NewClientModal'
 import { findDepartment } from '../data/departments'
 import { rememberContacts } from '../lib/sessionContext'
 
@@ -14,6 +15,7 @@ export default function Contacts() {
   const [client, setClient] = useState<Client | null>(null)
   const [contacts, setContacts] = useState<DepartmentContacts | null>(null)
   const [status, setStatus] = useState<LoadStatus>('idle')
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     if (!department) {
@@ -64,6 +66,17 @@ export default function Contacts() {
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr),360px]">
         <div className="space-y-8">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="rounded-full border border-accent/40 px-4 py-2 text-xs font-medium text-accent transition hover:bg-accent-subtle/40"
+              data-testid="open-new-client"
+            >
+              + Nouveau client
+            </button>
+          </div>
+
           <ClientSearch onSelect={handleClient} />
 
           {client ? (
@@ -111,6 +124,14 @@ export default function Contacts() {
           )}
         </aside>
       </div>
+
+      <NewClientModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={(created) => {
+          handleClient(created)
+        }}
+      />
     </section>
   )
 }

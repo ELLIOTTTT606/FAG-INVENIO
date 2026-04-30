@@ -15,7 +15,14 @@ from pydantic import BaseModel, Field
 
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
-from src.services.contacts_repo import ContactsRepository, make_repository_from_env
+from src.services.contacts_repo import (
+    Client as ClientDto,
+)
+from src.services.contacts_repo import (
+    ContactsRepository,
+    DuplicateClientError,
+    make_repository_from_env,
+)
 from src.services.options_catalog import OptionsCatalog, make_catalog_from_env
 from src.services.pdf_generator import (
     GenerationContext,
@@ -105,6 +112,15 @@ async def parse_pdf_endpoint(file: UploadFile) -> dict[str, Any]:
     return _parse_upload(file, ".pdf")
 
 
+class NewClientPayload(BaseModel):
+    """Body of POST /clients."""
+
+    client_code: str = Field(..., min_length=1, max_length=32)
+    client_name: str = Field(..., min_length=1, max_length=200)
+    postal_code: str = Field(..., pattern=r"^[0-9]{5}$")
+    department: str = Field(..., pattern=r"^(2A|2B|[0-9]{2,3})$")
+
+
 @app.get(
     "/clients/search",
     summary="Autocomplete clients by name, code, or postal code (>=2 chars)",
@@ -115,6 +131,30 @@ def search_clients(
     repo: ContactsRepository = Depends(get_contacts_repository),
 ) -> list[dict[str, str]]:
     return [c.to_dict() for c in repo.search_clients(q, limit=limit)]
+
+
+@app.post(
+    "/clients",
+    summary="Create a new client (writes into the Baserow CLIENTS table)",
+    status_code=201,
+)
+def create_client(
+    payload: NewClientPayload,
+    repo: ContactsRepository = Depends(get_contacts_repository),
+) -> dict[str, str]:
+    client = ClientDto(
+        client_code=payload.client_code,
+        client_name=payload.client_name,
+        postal_code=payload.postal_code,
+        department=payload.department,
+    )
+    try:
+        created = repo.create_client(client)
+    except DuplicateClientError as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    return created.to_dict()
 
 
 @app.get(

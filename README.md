@@ -109,6 +109,9 @@ Les pages livrees a ce stade :
 - `/contacts` — recherche client (autocomplete debouncee), picker
   departement (recherche + groupage par region), contacts TCI / TCS /
   Solution Habitat charges depuis `/contacts/department/{dep}`.
+  Bouton "+ Nouveau client" ouvre un modal qui POSTe sur `/clients`
+  (auto-deduit le departement depuis le code postal, override
+  possible).
 - `/options` — catalogue des options et accessoires pour le couple
   (model, type, size) extrait de l'import, accordeons par categorie,
   pre-cochage des options decodees de la designation, compteur global,

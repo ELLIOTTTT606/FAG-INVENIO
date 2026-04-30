@@ -147,6 +147,66 @@ def test_contacts_endpoint_rejects_invalid_department_format() -> None:
     assert response.status_code == 400
 
 
+def test_create_client_returns_201_and_persists_record(
+    mock_repo: MockContactsRepository,
+) -> None:
+    client = TestClient(app)
+    payload = {
+        "client_code": "c-test",
+        "client_name": "Test Co",
+        "postal_code": "75015",
+        "department": "75",
+    }
+    response = client.post("/clients", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    assert body["client_code"] == "C-TEST"
+    assert body["client_name"] == "Test Co"
+    # Lookup confirms persistence in the mock store.
+    assert any(c.client_code == "C-TEST" for c in mock_repo.search_clients("test"))
+
+
+def test_create_client_returns_409_on_duplicate(mock_repo: MockContactsRepository) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    payload = {
+        "client_code": "C-DUP",
+        "client_name": "First",
+        "postal_code": "75015",
+        "department": "75",
+    }
+    assert client.post("/clients", json=payload).status_code == 201
+    response = client.post("/clients", json={**payload, "client_name": "Second"})
+    assert response.status_code == 409
+
+
+def test_create_client_validates_postal_and_department(
+    mock_repo: MockContactsRepository,
+) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.post(
+        "/clients",
+        json={
+            "client_code": "C1",
+            "client_name": "X",
+            "postal_code": "abc",
+            "department": "75",
+        },
+    )
+    assert response.status_code == 422
+    response = client.post(
+        "/clients",
+        json={
+            "client_code": "C1",
+            "client_name": "X",
+            "postal_code": "75001",
+            "department": "FOO",
+        },
+    )
+    assert response.status_code == 422
+
+
 def test_options_endpoint_returns_pac_catalog(mock_catalog: MockOptionsCatalog) -> None:
     _ = mock_catalog
     client = TestClient(app)

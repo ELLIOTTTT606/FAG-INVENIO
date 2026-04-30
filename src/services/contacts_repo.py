@@ -72,12 +72,19 @@ class ContactsForDepartment:
         }
 
 
+class DuplicateClientError(RuntimeError):
+    """Raised when an attempt to create a client uses an existing code."""
+
+
 class ContactsRepository(ABC):
     @abstractmethod
     def search_clients(self, query: str, limit: int = 10) -> list[Client]: ...
 
     @abstractmethod
     def get_contacts_for_department(self, department: str) -> ContactsForDepartment: ...
+
+    @abstractmethod
+    def create_client(self, client: Client) -> Client: ...
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +134,27 @@ class MockContactsRepository(ContactsRepository):
         clients: tuple[Client, ...] = _MOCK_CLIENTS,
         contacts: dict[str, ContactsForDepartment] | None = None,
     ) -> None:
-        self._clients = clients
+        # Mutable copy so create_client can append.
+        self._clients: list[Client] = list(clients)
         self._contacts = contacts if contacts is not None else _MOCK_DEPARTMENT_CONTACTS
+
+    def create_client(self, client: Client) -> Client:
+        normalized_code = client.client_code.strip().upper()
+        if not normalized_code:
+            raise ValueError("client_code is required")
+        for existing in self._clients:
+            if existing.client_code.upper() == normalized_code:
+                raise DuplicateClientError(
+                    f"Client with code {normalized_code!r} already exists."
+                )
+        new_client = Client(
+            client_code=normalized_code,
+            client_name=client.client_name.strip(),
+            postal_code=client.postal_code.strip(),
+            department=client.department.strip().upper(),
+        )
+        self._clients.append(new_client)
+        return new_client
 
     def search_clients(self, query: str, limit: int = 10) -> list[Client]:
         normalized = _fold((query or "").strip())
@@ -211,6 +237,30 @@ class BaserowContactsRepository(ContactsRepository):
     def __init__(self, client: BaserowClient, tables: BaserowTables) -> None:
         self._client = client
         self._tables = tables
+
+    def create_client(self, client: Client) -> Client:
+        normalized_code = client.client_code.strip().upper()
+        if not normalized_code:
+            raise ValueError("client_code is required")
+        for existing in self._client.iter_all_rows(self._tables.clients):
+            existing_code = _first_str(existing, "client_code", "Code", "code")
+            if existing_code.upper() == normalized_code:
+                raise DuplicateClientError(
+                    f"Client with code {normalized_code!r} already exists in Baserow."
+                )
+        payload = {
+            "client_code": normalized_code,
+            "client_name": client.client_name.strip(),
+            "postal_code": client.postal_code.strip(),
+            "department": client.department.strip().upper(),
+        }
+        self._client.create_row(self._tables.clients, payload)
+        return Client(
+            client_code=normalized_code,
+            client_name=payload["client_name"],
+            postal_code=payload["postal_code"],
+            department=payload["department"],
+        )
 
     def search_clients(self, query: str, limit: int = 10) -> list[Client]:
         normalized = _fold((query or "").strip())

@@ -1,4 +1,5 @@
 import { Link, Route, Routes } from 'react-router-dom'
+import { BaserowBadge } from './components/BaserowBadge'
 import Contacts from './pages/Contacts'
 import Generate from './pages/Generate'
 import Home from './pages/Home'
@@ -27,8 +28,9 @@ function Header() {
   return (
     <header className="border-b border-ink-muted/20">
       <div className="mx-auto flex max-w-page items-center justify-between px-6 py-4 md:px-20">
-        <Link to="/" className="text-lg font-semibold tracking-tight">
-          INVENIO <span className="text-ink-muted">· France Air</span>
+        <Link to="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
+          <span>INVENIO <span className="text-ink-muted">· France Air</span></span>
+          <BaserowBadge />
         </Link>
         <nav className="flex items-center gap-6 text-sm">
           <Link to="/" className="hover:text-accent">

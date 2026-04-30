@@ -24,6 +24,7 @@ from src.services.pdf_generator import (
     render_pdf,
     suggested_filename,
 )
+from src.services.settings import get_settings
 
 app = FastAPI(
     title="INVENIO API",
@@ -48,6 +49,21 @@ def get_options_catalog() -> OptionsCatalog:
 @app.get("/health", summary="Liveness probe")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/admin/baserow-status", summary="Baserow connectivity diagnostic for the UI badge")
+def baserow_status() -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "mode": settings.baserow_mode,
+        "url": settings.baserow_url,
+        "tables": {
+            "clients": settings.baserow_table_clients,
+            "contacts_force_vente": settings.baserow_table_contacts_force_vente,
+            "contacts_solution": settings.baserow_table_contacts_solution,
+            "options_accessoires": settings.baserow_table_options_accessoires,
+        },
+    }
 
 
 def _parse_upload(file: UploadFile, allowed_suffix: str) -> dict[str, Any]:

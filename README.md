@@ -159,6 +159,37 @@ Affiche le JSON canonique partiel extrait du fichier.
 python -m src.parser.pdf_parser examples/sample_galletti.pdf
 ```
 
+### Diagnostic Baserow
+
+Pour verifier la configuration Baserow (token, URL, tables, donnees) :
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+export BASEROW_TABLE_CLIENTS=939119
+export BASEROW_TABLE_CONTACTS_FORCE_VENTE=939355
+export BASEROW_TABLE_CONTACTS_SOLUTION=939361
+export BASEROW_TABLE_OPTIONS_ACCESSOIRES=941070
+
+python -m tools.baserow_smoke
+# ou en JSON :
+python -m tools.baserow_smoke --json
+```
+
+Le script teste l'auth, liste chaque table configuree, puis exerce les
+trois cas d'usage du backend (recherche client, contacts par
+departement, catalogue d'options). Sortie 0 si tout est vert, 1 sinon.
+
+L'API expose aussi `GET /admin/baserow-status` qui alimente le badge UI
+"Baserow live / mock" affiche dans l'en-tete.
+
+Les tests contract live (`tests/contract/test_baserow_live.py`) sont
+sautes par defaut. Pour les activer :
+
+```bash
+INVENIO_BASEROW_LIVE=1 pytest tests/contract -m live
+```
+
 ### Synchronisation du decodeur de designation depuis Baserow
 
 La chaine de designation GALLETTI (`PLP052HS2B A000CE000I00110 0000000I000000000000`)

@@ -52,6 +52,9 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --strict-config"
 pythonpath = ["."]
+markers = [
+    "live: tests that hit a real Baserow instance (skipped unless INVENIO_BASEROW_LIVE=1)",
+]
 
 [tool.coverage.run]
 branch = true

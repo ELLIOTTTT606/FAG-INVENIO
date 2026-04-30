@@ -171,6 +171,15 @@ def test_options_endpoint_returns_geg_catalog(mock_catalog: MockOptionsCatalog) 
     assert "Kit antigel" not in categories
 
 
+def test_baserow_status_endpoint_reports_mock_when_unconfigured() -> None:
+    client = TestClient(app)
+    response = client.get("/admin/baserow-status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] in {"mock", "live"}
+    assert "tables" in body and isinstance(body["tables"], dict)
+
+
 def test_options_endpoint_requires_all_query_params() -> None:
     client = TestClient(app)
     response = client.get("/options", params={"model": "PLP", "type": "HS"})

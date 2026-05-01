@@ -238,6 +238,20 @@ npm test                       # vitest run
 npm run build                  # build production
 ```
 
+Tests E2E (Playwright) :
+
+```bash
+cd ui
+npm run e2e:install            # telecharge Chromium (~150 Mo, idempotent)
+npm run e2e                    # parcours complet : import -> options ->
+                               # contacts -> generation PDF (>= 6 tests)
+```
+
+La config Playwright lance automatiquement le backend
+(`uvicorn` sur 8000) et le frontend (`vite preview` sur 4173) le temps
+de la suite. Les fixtures DOCX/PDF synthetiques sont commitees sous
+`ui/e2e/fixtures/`.
+
 ## Structure du depot
 
 ```

@@ -28,6 +28,10 @@ ui/dist/
 ui/coverage/
 *.tsbuildinfo
 
+# Playwright artifacts
+ui/test-results/
+ui/playwright-report/
+
 # IDE
 .idea/
 .vscode/
@@ -41,6 +45,7 @@ generated/
 *.pdf
 !examples/*.pdf
 !tests/fixtures/**/*.pdf
+!ui/e2e/fixtures/**/*.pdf
 
 # Secrets
 *.pem

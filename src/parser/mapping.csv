@@ -1,0 +1,85 @@
+section,source_label,canonical_path,unit,coercion
+conditions_cooling,temp entree eau utilisation,conditions.cooling.water_in_C,C,float1
+conditions_cooling,temp sortie eau utilisation,conditions.cooling.water_out_C,C,float1
+conditions_cooling,glycol cote utilisation,conditions.cooling.glycol_percent,%,int
+conditions_cooling,temp air exterieur source,conditions.cooling.air_temp_C,C,float1
+conditions_cooling,humidite relative air source,conditions.cooling.air_humidity_percent,%,int
+conditions_cooling,pourcentage de charge,conditions.cooling.load_percent,%,int
+conditions_heating,temp entree eau utilisation,conditions.heating.water_in_C,C,float1
+conditions_heating,temp sortie eau utilisation,conditions.heating.water_out_C,C,float1
+conditions_heating,glycol cote utilisation,conditions.heating.glycol_percent,%,int
+conditions_heating,temp air exterieur source,conditions.heating.air_temp_C,C,float1
+conditions_heating,humidite relative air source,conditions.heating.air_humidity_percent,%,int
+conditions_heating,pourcentage de charge,conditions.heating.load_percent,%,int
+acoustic,distance en champ libre,acoustic.free_field_distance_m,m,float1
+acoustic,facteur de directionnalite,acoustic.directionality_factor,,float1
+norm,calculs selon la norme uni en 14511,norm.uni_en_14511_applied,,bool
+norm,calculs selon uni en 14511,norm.uni_en_14511_applied,,bool
+norm,uni en 14511 version,norm.uni_en_14511_version,,string
+norm,version,norm.uni_en_14511_version,,string
+performance_cooling,puissance frigorifique,performance.cooling.power_kW,kW,float1
+performance_cooling,puissance de refroidissement,performance.cooling.power_kW,kW,float1
+performance_cooling,puissance frigorifique uni,performance.cooling.power_uni_kW,kW,float1
+performance_cooling,puissance de refroidissement uni en 14511,performance.cooling.power_uni_kW,kW,float1
+performance_cooling,debit eau utilisateur,performance.cooling.water_flow_lph,l/h,int
+performance_cooling,debit d eau du circuit utilisateur,performance.cooling.water_flow_lph,l/h,int
+performance_cooling,perte de charge utilisateur,performance.cooling.pressure_drop_kPa,kPa,float1
+performance_cooling,perte de charge du circuit utilisateur,performance.cooling.pressure_drop_kPa,kPa,float1
+performance_cooling,puissance absorbee compresseurs,performance.cooling.compressors_power_kW,kW,float1
+performance_cooling,puissance absorbee par les compresseurs,performance.cooling.compressors_power_kW,kW,float1
+performance_cooling,courant absorbe compresseurs,performance.cooling.compressors_current_A,A,float1
+performance_cooling,courant abs compresseurs,performance.cooling.compressors_current_A,A,float1
+performance_cooling,puissance absorbee totale,performance.cooling.total_power_kW,kW,float1
+performance_cooling,puissance absorbee totale uni en 14511,performance.cooling.total_power_uni_kW,kW,float1
+performance_cooling,courant absorbe total,performance.cooling.total_current_A,A,float1
+performance_cooling,eer,performance.cooling.eer,,float2
+performance_cooling,eer uni en 14511,performance.cooling.eer_uni,,float2
+performance_cooling,seer,performance.cooling.seer,,float2
+performance_cooling,pompes bp option cicuit reversible pression disponible,hydraulics.lp_pump_pressure_kPa,kPa,float1
+performance_cooling,lp pumps option user side maximum absorbed current fla,hydraulics.lp_pump_max_current_A,A,float1
+performance_cooling,pompes hp option cicuit reversible pression disponible,hydraulics.hp_pump_pressure_kPa,kPa,float1
+performance_cooling,hp pumps option user side maximum absorbed current fla,hydraulics.hp_pump_max_current_A,A,float1
+performance_heating,puissance calorifique,performance.heating.power_kW,kW,float1
+performance_heating,puissance de chauffage,performance.heating.power_kW,kW,float1
+performance_heating,puissance calorifique uni,performance.heating.power_uni_kW,kW,float1
+performance_heating,puissance de chauffage uni en 14511,performance.heating.power_uni_kW,kW,float1
+performance_heating,debit eau utilisateur,performance.heating.water_flow_lph,l/h,int
+performance_heating,debit d eau du circuit utilisateur,performance.heating.water_flow_lph,l/h,int
+performance_heating,perte de charge utilisateur,performance.heating.pressure_drop_kPa,kPa,float1
+performance_heating,perte de charge du circuit utilisateur,performance.heating.pressure_drop_kPa,kPa,float1
+performance_heating,puissance absorbee compresseurs,performance.heating.compressors_power_kW,kW,float1
+performance_heating,puissance absorbee par les compresseurs,performance.heating.compressors_power_kW,kW,float1
+performance_heating,courant absorbe compresseurs,performance.heating.compressors_current_A,A,float1
+performance_heating,courant abs compresseurs,performance.heating.compressors_current_A,A,float1
+performance_heating,puissance absorbee totale,performance.heating.total_power_kW,kW,float1
+performance_heating,puissance absorbee totale uni en 14511,performance.heating.total_power_uni_kW,kW,float1
+performance_heating,courant absorbe total,performance.heating.total_current_A,A,float1
+performance_heating,cop,performance.heating.cop,,float2
+performance_heating,cop uni en 14511,performance.heating.cop_uni,,float2
+performance_heating,scop,performance.heating.scop,,float2
+performance_heating,eta s,performance.heating.eta_s_percent,,float1
+performance_heating,classe saisonniere chauffage,performance.heating.seasonal_class,,string
+performance_heating,heating seasonal efficiency class,performance.heating.seasonal_class,,string
+general,max courant absorbe fla,general.max_current_A,A,float1
+general,max courant absorbe fla sans options,general.max_current_A,A,float1
+general,courant de demarrage lra,general.starting_current_A,A,float1
+general,courant de demarrage lra sans options,general.starting_current_A,A,float1
+general,niveau de puissance acoustique lw,general.sound_power_lw_dBA,dB(A),float1
+general,niveau puissance acoustique lw,general.sound_power_lw_dBA,dB(A),float1
+general,niveau de pression acoustique lp,general.sound_pressure_lp_dBA,dB(A),float1
+general,niveau pression acoustique lp,general.sound_pressure_lp_dBA,dB(A),float1
+general,niveau sonore lw version silensieuse,general.sound_power_lw_low_noise_dBA,dB(A),float1
+general,sound pressure level lp low noise unit,general.sound_pressure_lp_low_noise_dBA,dB(A),float1
+general,debit d air source,general.source_air_flow_m3h,m3/h,float1
+general,source air volumetric flow,general.source_air_flow_m3h,m3/h,float1
+general,nombre de ventilateurs,general.source_fans_count,,int
+general,source fans number,general.source_fans_count,,int
+general,source fans power input,general.source_fans_power_kW,kW,float1
+general,source fans absorbed current,general.source_fans_current_A,A,float1
+general,compresseurs circuits,general.compressors_circuits,,string
+general,capacite du reservoir d eau,hydraulics.tank_capacity_L,l,float1
+general,refrigerant,general.refrigerant,,string
+general,gwp,general.gwp,,float1
+general,poids sans options,general.weight_kg,kg,float1
+general,alimentation d energie,general.supply,,string
+general,alimentation,general.supply,,string

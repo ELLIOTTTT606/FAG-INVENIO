@@ -1,0 +1,372 @@
+# INVENIO
+
+SaaS interne **France Air - Solution Habitat** pour remplacer le rendu Word/PDF
+produit par GALLETTI : import d'une fiche source (.docx / .pdf), extraction
+et normalisation des donnees, selection des contacts et options, puis
+generation d'une fiche de selection PDF au design France Air.
+
+> **Statut** : MVP en cours - Sprint 0 (bootstrap, validation CSV, schema
+> JSON canonique, parser DOCX minimal). Voir `docs/architecture.md` pour la
+> roadmap complete.
+
+---
+
+## Sommaire
+
+- [Architecture](#architecture)
+- [Prerequis](#prerequis)
+- [Installation](#installation)
+- [Lancement](#lancement)
+- [Outils CLI](#outils-cli)
+- [Tests](#tests)
+- [Structure du depot](#structure-du-depot)
+- [Conventions](#conventions)
+- [Securite et secrets](#securite-et-secrets)
+
+---
+
+## Architecture
+
+Pipeline cible :
+
+```
+fichier source (.docx / .pdf)
+        |
+        v
+   [ parser ]  ----> JSON canonique (valide contre pac_geg_schema.json)
+        |
+        v
+   [ UI / API ]  <-> Baserow (clients, options, contacts)
+        |
+        v
+   [ generator HTML -> PDF ] (Playwright)
+        |
+        v
+   fiche de selection PDF (design France Air)
+```
+
+Modules livres dans ce sprint :
+
+- `src/parser/docx_parser.py` - parser DOCX MVP (tableaux + designation).
+- `src/schema/pac_geg_schema.json` - schema canonique (PAC / GEG).
+- `src/schema/options_schema.json` - schema des CSV options/accessoires.
+- `tools/validate_csv.py` - validation et normalisation des CSV options.
+- `src/api/main.py` - squelette FastAPI (health + upload + parse).
+- `src/services/baserow_client.py` - wrapper minimal Baserow.
+
+## Prerequis
+
+- Python 3.11 ou plus.
+- Node.js 22+ pour le frontend `ui/`.
+- Pour la generation PDF (deja inclus dans les dependances) WeasyPrint
+  necessite quelques libs systeme : sur Debian/Ubuntu
+  `sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0`.
+
+## Installation
+
+```bash
+# Cloner et se placer sur la branche de developpement
+git clone <repo-url>
+cd FAG-INVENIO
+git checkout claude/galletti-to-invenio-migration-zrKBt
+
+# Environnement Python
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e ".[dev]"
+
+# Variables d'environnement
+cp .env.example .env
+# editer .env (en particulier BASEROW_TOKEN si vous voulez l'API live)
+```
+
+## Lancement
+
+API FastAPI (dev) :
+
+```bash
+uvicorn src.api.main:app --reload --port 8000
+# -> http://localhost:8000/health
+# -> http://localhost:8000/docs (OpenAPI)
+```
+
+Frontend React (dev) :
+
+```bash
+cd ui
+npm install
+npm run dev
+# -> http://localhost:5173
+# Le serveur Vite proxifie /parse et /health vers http://localhost:8000.
+```
+
+Les pages livrees a ce stade :
+
+- `/` — Home, CTA "Generer ma fiche".
+- `/import` — dropzone .docx / .pdf, appel `/parse/{docx,pdf}`, resume des
+  champs extraits avec icones ✓ / ⚠, options decodees, alertes warnings.
+- `/contacts` — recherche client (autocomplete debouncee), carte SVG
+  France interactive (centroides projetes des 96 departements + 5 DROM
+  cliquables) doublee d'un picker liste/recherche. Contacts TCI / TCS
+  / Solution Habitat charges depuis `/contacts/department/{dep}`.
+  Bouton "+ Nouveau client" ouvre un modal qui POSTe sur `/clients`
+  (auto-deduit le departement depuis le code postal, override
+  possible). Le meme modal sert aussi a editer un client existant
+  (PATCH `/clients/{id}` declenche par l'icone ✎ dans la recherche
+  ou le bouton "Modifier" sur la fiche selectionnee).
+- `/options` — catalogue des options et accessoires pour le couple
+  (model, type, size) extrait de l'import, accordeons par categorie,
+  pre-cochage des options decodees de la designation, compteur global,
+  description + tips sur depliage. Charge depuis
+  `/options?model=&type=&size=`.
+- `/generate` — apercu de la fiche dans une iframe (HTML rendu par
+  `/generate/preview`) et bouton "Telecharger le PDF" qui appelle
+  `/generate/pdf` (rendu via WeasyPrint, sommaire cliquable, bookmarks
+  PDF, page de garde France Air).
+
+Le backend utilise un `MockContactsRepository` quand `BASEROW_TOKEN`
+n'est pas defini (donnees factices mais plausibles), et bascule sur
+`BaserowContactsRepository` lorsque le token et l'URL sont presents.
+
+## Outils CLI
+
+### Validation d'un CSV options/accessoires
+
+```bash
+python -m tools.validate_csv \
+    --input examples/options_accessoires_sample.csv \
+    --schema src/schema/options_schema.json \
+    --out-valid validated/options_accessoires_sample.valid.csv \
+    --out-report reports/options_accessoires_sample.report.json
+```
+
+Le script :
+
+1. verifie la presence des colonnes obligatoires,
+2. valide chaque ligne contre le JSON Schema,
+3. normalise (`code` en majuscules, `available` en booleen, espaces),
+4. detecte les doublons sur la cle `(model, size, option_code)`,
+5. ecrit le CSV nettoye et un rapport JSON detaille.
+
+Code retour : `0` si pas d'erreur (warnings autorises), `1` sinon.
+
+### Parsing DOCX (preview)
+
+```bash
+python -m src.parser.docx_parser examples/sample_galletti.docx
+```
+
+Affiche le JSON canonique partiel extrait du fichier.
+
+### Parsing PDF (preview)
+
+```bash
+python -m src.parser.pdf_parser examples/sample_galletti.pdf
+```
+
+### Diagnostic Baserow
+
+Pour verifier la configuration Baserow (token, URL, tables, donnees) :
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+export BASEROW_TABLE_CLIENTS=939119
+export BASEROW_TABLE_CONTACTS_FORCE_VENTE=939355
+export BASEROW_TABLE_CONTACTS_SOLUTION=939361
+export BASEROW_TABLE_OPTIONS_ACCESSOIRES=941070
+
+python -m tools.baserow_smoke
+# ou en JSON :
+python -m tools.baserow_smoke --json
+```
+
+Le script teste l'auth, liste chaque table configuree, puis exerce les
+trois cas d'usage du backend (recherche client, contacts par
+departement, catalogue d'options). Sortie 0 si tout est vert, 1 sinon.
+
+L'API expose aussi `GET /admin/baserow-status` qui alimente le badge UI
+"Baserow live / mock" affiche dans l'en-tete.
+
+Les tests contract live (`tests/contract/test_baserow_live.py`) sont
+sautes par defaut. Pour les activer :
+
+```bash
+INVENIO_BASEROW_LIVE=1 pytest tests/contract -m live
+```
+
+### Bench du parser sur un corpus reel
+
+Pour mesurer la qualite des parsers sur un dossier de fiches GALLETTI :
+
+```bash
+python -m tools.parser_bench \
+    --input ./corpus \
+    --output bench-report.json \
+    [--strict-schema]
+```
+
+Le script parse chaque `.docx` / `.pdf`, valide la sortie contre
+`pac_geg_schema.json`, agrege un rapport :
+
+  - distribution PAC vs GEG, taux de detection de la designation,
+  - top 10 des codes de warning,
+  - couverture par champ canonique (`conditions.cooling.*`,
+    `performance.heating.*`, `general.*`...) en %,
+  - stats de duree (min / p50 / p95 / max),
+  - detail par fiche (path, format, schema_valid, parse_error...).
+
+Sortie 0 si tout est parse sans erreur. Avec `--strict-schema`, sortie
+1 des qu'une fiche viole le schema. Idiomatique pour FA :
+
+```bash
+python -m tools.parser_bench --input ./fiches_galletti --output bench.json
+jq '.field_coverage["performance.cooling"]' bench.json   # spotter les
+                                                         # champs sous-extraits
+```
+
+### Push d'un CSV options/accessoires vers Baserow
+
+Une fois le CSV maitre valide via `tools.validate_csv`, on le pousse en
+masse dans la table OPTIONS et ACCESSOIRES :
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+
+# Dry-run (n'appelle pas Baserow s'il n'y a pas de token).
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --dry-run --json
+
+# Push reel : cree uniquement les lignes manquantes (idempotent).
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --batch-size 50
+
+# Upsert : PATCH les lignes deja presentes au lieu de les sauter.
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --upsert
+```
+
+La cle de dedup est `model,size,option_code` par defaut
+(`--unique-key` pour la changer). `--field-map` reprend la meme
+convention que `baserow_to_decoder` (ex. `--field-map model=Modele
+option_code=Code`). Le rapport JSON expose `created`, `updated`,
+`skipped`, `errors`.
+
+### Synchronisation du decodeur de designation depuis Baserow
+
+La chaine de designation GALLETTI (`PLP052HS2B A000CE000I00110 0000000I000000000000`)
+encode les options par position. Pour les decoder, le parser lit
+`src/parser/designation_decoder.csv`. Ce CSV est genere a partir d'une
+table Baserow contenant les regles `(family, block, position, character)
+-> option metadata`:
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+python -m tools.baserow_to_decoder \
+    --table-id 941070 \
+    --output src/parser/designation_decoder.csv \
+    --field-map family=Famille block=Bloc position=Position \
+                character=Caractere code=Code category=Categorie \
+                label_fr=Libelle description_fr=Description tips_fr=Tips
+```
+
+Tant que le CSV est vide, chaque caractere non-zero produit une entree
+placeholder dans `options[]` et un warning `designation_decoder_missing`.
+
+## Tests
+
+Backend Python :
+
+```bash
+pytest                         # tous les tests
+pytest tests/unit -q           # uniquement les tests unitaires
+pytest --cov=src --cov=tools   # avec couverture
+ruff check .                   # lint
+mypy src tools                 # typecheck
+```
+
+Frontend React :
+
+```bash
+cd ui
+npm run typecheck              # tsc --noEmit
+npm run lint                   # eslint
+npm test                       # vitest run
+npm run build                  # build production
+```
+
+Tests E2E (Playwright) :
+
+```bash
+cd ui
+npm run e2e:install            # telecharge Chromium (~150 Mo, idempotent)
+npm run e2e                    # parcours complet : import -> options ->
+                               # contacts -> generation PDF (>= 6 tests)
+```
+
+La config Playwright lance automatiquement le backend
+(`uvicorn` sur 8000) et le frontend (`vite preview` sur 4173) le temps
+de la suite. Les fixtures DOCX/PDF synthetiques sont commitees sous
+`ui/e2e/fixtures/`.
+
+## Structure du depot
+
+```
+FAG-INVENIO/
+|- .github/
+|  |- workflows/ci.yml
+|  `- pull_request_template.md
+|- docs/
+|  `- architecture.md
+|- src/
+|  |- api/                      # FastAPI app
+|  |- parser/                   # docx_parser.py + mapping
+|  |- schema/                   # JSON Schemas
+|  `- services/                 # baserow_client.py
+|- tools/
+|  `- validate_csv.py
+|- tests/
+|  |- unit/
+|  |- integration/
+|  `- fixtures/
+|- examples/
+|- ui/
+|  |- src/
+|  |  |- pages/                 # Home.tsx, Import.tsx
+|  |  |- components/             # Dropzone, ExtractionSummary
+|  |  |- api/                    # client + types
+|  |  |- styles/                 # tokens (Tailwind)
+|  |  `- test/                   # vitest tests + fixtures
+|  |- index.html
+|  |- vite.config.ts
+|  |- tailwind.config.ts
+|  `- package.json
+|- pyproject.toml
+|- .env.example
+|- .gitignore
+`- README.md
+```
+
+## Conventions
+
+- **Branches** : `claude/<sujet>-<hash>` pour les iterations IA.
+- **Commits** : style imperatif, scope explicite (`parser:`, `tools:`,
+  `schema:`, `api:`, `docs:`, `ci:`).
+- **PR** : draft par defaut, description avec checklist, lier les issues.
+- **Lint / type** : `ruff` + `mypy` doivent passer en CI.
+- **Couverture** : objectif >= 80 % sur `src/` et `tools/`.
+
+## Securite et secrets
+
+- Aucun secret dans le repo : utiliser `.env` (gitignore) ou un Vault.
+- Le token Baserow est lu via `BASEROW_TOKEN` dans l'environnement.
+- Rotation prevue tous les 90 jours (voir `docs/architecture.md`).

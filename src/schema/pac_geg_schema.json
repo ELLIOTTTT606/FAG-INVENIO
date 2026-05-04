@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://france-air.local/invenio/pac_geg.schema.json",
+  "title": "INVENIO PAC/GEG canonical record",
+  "description": "JSON canonique produit par le parser et consomme par l'UI et le generateur PDF.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["family", "model", "size", "type"],
+  "properties": {
+    "family": {
+      "type": "string",
+      "enum": ["PAC", "GEG"],
+      "description": "Famille machine (PAC = pompe a chaleur, GEG = groupe d'eau glacee)."
+    },
+    "model": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 16,
+      "pattern": "^[A-Z0-9]+$"
+    },
+    "size": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8,
+      "pattern": "^[0-9A-Z]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["HS", "HL", "CS", "CL"],
+      "description": "Type acoustique : H/C (Heating/Cooling) + S/L (Standard/Low noise)."
+    },
+    "designation_code": {
+      "type": ["string", "null"],
+      "description": "Chaine de designation brute extraite du document source."
+    },
+    "designation_blocks": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Blocs d'options encodes dans la chaine de designation (raw).",
+      "properties": {
+        "block1": { "type": ["string", "null"] },
+        "block2": { "type": ["string", "null"] }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cooling": { "$ref": "#/$defs/operatingPoint" },
+        "heating": { "$ref": "#/$defs/operatingPoint" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cooling": { "$ref": "#/$defs/coolingPerformance" },
+        "heating": { "$ref": "#/$defs/heatingPerformance" }
+      }
+    },
+    "hydraulics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lp_pump_pressure_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "hp_pump_pressure_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "lp_pump_max_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "hp_pump_max_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "tank_capacity_L": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "acoustic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "free_field_distance_m": { "type": ["number", "null"], "minimum": 0 },
+        "directionality_factor": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "norm": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uni_en_14511_applied": { "type": ["boolean", "null"] },
+        "uni_en_14511_version": { "type": ["string", "null"] }
+      }
+    },
+    "general": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "starting_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "sound_power_lw_dBA": { "type": ["number", "null"], "minimum": 0 },
+        "sound_pressure_lp_dBA": { "type": ["number", "null"], "minimum": 0 },
+        "sound_power_lw_low_noise_dBA": { "type": ["number", "null"], "minimum": 0 },
+        "sound_pressure_lp_low_noise_dBA": { "type": ["number", "null"], "minimum": 0 },
+        "source_air_flow_m3h": { "type": ["number", "null"], "minimum": 0 },
+        "source_fans_count": { "type": ["integer", "null"], "minimum": 0 },
+        "source_fans_power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "source_fans_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "compressors_circuits": { "type": ["string", "null"] },
+        "refrigerant": { "type": ["string", "null"] },
+        "gwp": { "type": ["number", "null"], "minimum": 0 },
+        "weight_kg": { "type": ["number", "null"], "minimum": 0 },
+        "supply": { "type": ["string", "null"] }
+      }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "label"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1, "maxLength": 8 },
+          "category": { "type": ["string", "null"] },
+          "label": { "type": "string", "minLength": 1 },
+          "description": { "type": ["string", "null"] },
+          "tips": { "type": ["string", "null"] },
+          "selected": { "type": "boolean", "default": false },
+          "block": { "type": ["integer", "null"], "enum": [1, 2, null] },
+          "position": { "type": ["integer", "null"], "minimum": 0 },
+          "character": { "type": ["string", "null"], "minLength": 1, "maxLength": 1 },
+          "decoded": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "contacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "client_code": { "type": ["string", "null"] },
+        "client_name": { "type": ["string", "null"] },
+        "postal_code": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{5}$"
+        },
+        "department": {
+          "type": ["string", "null"],
+          "pattern": "^(2A|2B|[0-9]{2,3})$"
+        },
+        "tci": { "$ref": "#/$defs/contact" },
+        "tcs": { "$ref": "#/$defs/contact" },
+        "solution": { "$ref": "#/$defs/contact" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filename": { "type": "string" },
+        "format": { "type": "string", "enum": ["docx", "pdf"] },
+        "extracted_at": { "type": "string", "format": "date-time" },
+        "parser_version": { "type": "string" }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "field": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "operatingPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "water_in_C": { "type": ["number", "null"] },
+        "water_out_C": { "type": ["number", "null"] },
+        "glycol_percent": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "air_temp_C": { "type": ["number", "null"] },
+        "air_humidity_percent": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+        "load_percent": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 }
+      }
+    },
+    "coolingPerformance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "power_uni_kW": { "type": ["number", "null"], "minimum": 0 },
+        "water_flow_lph": { "type": ["integer", "null"], "minimum": 0 },
+        "pressure_drop_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "compressors_power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "compressors_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "total_power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "total_power_uni_kW": { "type": ["number", "null"], "minimum": 0 },
+        "total_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "eer": { "type": ["number", "null"], "minimum": 0 },
+        "eer_uni": { "type": ["number", "null"], "minimum": 0 },
+        "seer": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "heatingPerformance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "power_uni_kW": { "type": ["number", "null"], "minimum": 0 },
+        "water_flow_lph": { "type": ["integer", "null"], "minimum": 0 },
+        "pressure_drop_kPa": { "type": ["number", "null"], "minimum": 0 },
+        "compressors_power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "compressors_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "total_power_kW": { "type": ["number", "null"], "minimum": 0 },
+        "total_power_uni_kW": { "type": ["number", "null"], "minimum": 0 },
+        "total_current_A": { "type": ["number", "null"], "minimum": 0 },
+        "cop": { "type": ["number", "null"], "minimum": 0 },
+        "cop_uni": { "type": ["number", "null"], "minimum": 0 },
+        "scop": { "type": ["number", "null"], "minimum": 0 },
+        "eta_s_percent": { "type": ["number", "null"], "minimum": 0 },
+        "seasonal_class": { "type": ["string", "null"] }
+      }
+    },
+    "contact": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "email": { "type": ["string", "null"], "format": "email" },
+        "phone": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

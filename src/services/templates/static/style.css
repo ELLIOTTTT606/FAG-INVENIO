@@ -1,0 +1,303 @@
+/* ------------------------------------------------------------------------- *
+ * INVENIO PDF stylesheet (France Air design tokens, paged)                  *
+ * ------------------------------------------------------------------------- */
+
+@page {
+  size: A4;
+  margin: 22mm 18mm 20mm 18mm;
+  @top-left {
+    content: "INVENIO · France Air";
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 9pt;
+    color: #64748B;
+  }
+  @top-right {
+    content: string(machine-id);
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 9pt;
+    color: #64748B;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 9pt;
+    color: #64748B;
+  }
+  @bottom-left {
+    content: "Solutions Habitat";
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 9pt;
+    color: #64748B;
+  }
+}
+
+@page :first {
+  margin: 18mm;
+  @top-left { content: ""; }
+  @top-right { content: ""; }
+  @bottom-left { content: ""; }
+  @bottom-right { content: ""; }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Helvetica", "Arial", sans-serif;
+  font-size: 10pt;
+  color: #0F172A;
+  line-height: 1.45;
+}
+
+/* Cover page ---------------------------------------------------------------- */
+
+.cover {
+  page: cover;
+  page-break-after: always;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.cover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 10mm;
+}
+
+.brand {
+  font-size: 11pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2F5EFF;
+  font-weight: 600;
+}
+
+.brand small { display: block; color: #64748B; letter-spacing: 0.04em; }
+
+.cover-body {
+  margin-top: 25mm;
+}
+
+.cover-eyebrow {
+  font-size: 9pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2F5EFF;
+  margin-bottom: 3mm;
+}
+
+.cover-title {
+  font-size: 32pt;
+  line-height: 1.1;
+  font-weight: 700;
+  margin: 0 0 6mm 0;
+  color: #0F172A;
+  string-set: machine-id attr(data-machine);
+}
+
+.cover-subtitle {
+  font-size: 14pt;
+  color: #1B2A5A;
+  margin: 0 0 10mm 0;
+}
+
+.cover-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4mm 12mm;
+  font-size: 10pt;
+}
+
+.cover-meta dt {
+  font-size: 8pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748B;
+}
+
+.cover-meta dd { margin: 0 0 2mm 0; font-weight: 600; }
+
+.cover-footer {
+  border-top: 1px solid #E2E8F0;
+  padding-top: 6mm;
+  font-size: 9pt;
+  color: #64748B;
+}
+
+/* Section structure --------------------------------------------------------- */
+
+.section {
+  page-break-before: always;
+}
+
+.section-eyebrow {
+  font-size: 8pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2F5EFF;
+  margin-bottom: 1mm;
+}
+
+h1 { font-size: 18pt; margin: 0 0 6mm 0; color: #0F172A; }
+h2 { font-size: 13pt; margin: 8mm 0 3mm 0; color: #1B2A5A; }
+h3 { font-size: 10pt; margin: 5mm 0 2mm 0; color: #0F172A; text-transform: uppercase; letter-spacing: 0.08em; }
+
+h1.section-title {
+  bookmark-level: 1;
+  bookmark-state: open;
+  margin-bottom: 8mm;
+}
+
+h2.subsection-title {
+  bookmark-level: 2;
+}
+
+/* Table of contents --------------------------------------------------------- */
+
+.toc {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 11pt;
+}
+
+.toc li { margin: 0 0 3mm 0; display: flex; }
+
+.toc a {
+  text-decoration: none;
+  color: #0F172A;
+  flex-grow: 1;
+  display: flex;
+  align-items: baseline;
+}
+
+.toc a::after {
+  content: target-counter(attr(href), page);
+  margin-left: 3mm;
+  color: #64748B;
+  font-variant-numeric: tabular-nums;
+}
+
+.toc-leader {
+  flex-grow: 1;
+  border-bottom: 1px dotted #94A3B8;
+  margin: 0 3mm 0 3mm;
+  transform: translateY(-2px);
+}
+
+/* Data tables --------------------------------------------------------------- */
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 3mm;
+  font-size: 9.5pt;
+}
+
+table.data thead th {
+  background: #F1F5F9;
+  text-align: left;
+  font-size: 8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #475569;
+  padding: 2.5mm 3mm;
+  border-bottom: 1px solid #CBD5E1;
+}
+
+table.data tbody td {
+  padding: 2.5mm 3mm;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+table.data tbody td:first-child { color: #475569; }
+table.data tbody td.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+table.data tbody td.unit { text-align: right; color: #94A3B8; width: 18mm; }
+
+.missing { color: #F59E0B; font-style: italic; font-weight: 400; }
+
+/* Two-column compare ------------------------------------------------------- */
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6mm;
+  margin-top: 4mm;
+}
+
+.compare-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 4mm;
+  padding: 4mm 5mm;
+}
+
+.compare-card.heating { background: #FEF3C7; border-color: #FDE68A; }
+.compare-card.cooling { background: #DBEAFE; border-color: #BFDBFE; }
+
+.compare-card h3 { margin-top: 0; }
+
+/* Options ------------------------------------------------------------------ */
+
+.option-list { list-style: none; padding: 0; margin: 0; }
+.option-list li {
+  display: grid;
+  grid-template-columns: 14mm 1fr;
+  column-gap: 5mm;
+  padding: 3mm 0;
+  border-bottom: 1px solid #E2E8F0;
+  page-break-inside: avoid;
+}
+.option-list li code {
+  font-family: "Courier New", monospace;
+  font-size: 9.5pt;
+  color: #2F5EFF;
+}
+.option-list li .label { font-weight: 600; }
+.option-list li .meta { color: #64748B; font-size: 8.5pt; margin-top: 1mm; }
+.option-list li .tips {
+  background: #E0E8FF;
+  color: #1B2A5A;
+  padding: 2mm 3mm;
+  border-radius: 2mm;
+  margin-top: 2mm;
+  font-size: 8.5pt;
+}
+
+/* Contacts ----------------------------------------------------------------- */
+
+.contacts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4mm;
+}
+
+.contact-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 3mm;
+  padding: 4mm;
+  page-break-inside: avoid;
+}
+
+.contact-card h4 {
+  font-size: 8pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2F5EFF;
+  margin: 0 0 2mm 0;
+}
+
+.contact-card .name { font-weight: 600; margin-bottom: 1mm; }
+.contact-card .email, .contact-card .phone { font-size: 9pt; color: #475569; }
+
+.warning-banner {
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  padding: 3mm 4mm;
+  border-radius: 2mm;
+  margin-bottom: 6mm;
+  font-size: 9pt;
+}

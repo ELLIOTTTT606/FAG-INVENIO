@@ -194,6 +194,40 @@ sautes par defaut. Pour les activer :
 INVENIO_BASEROW_LIVE=1 pytest tests/contract -m live
 ```
 
+### Push d'un CSV options/accessoires vers Baserow
+
+Une fois le CSV maitre valide via `tools.validate_csv`, on le pousse en
+masse dans la table OPTIONS et ACCESSOIRES :
+
+```bash
+export BASEROW_URL=https://api.baserow.io
+export BASEROW_TOKEN=...
+
+# Dry-run (n'appelle pas Baserow s'il n'y a pas de token).
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --dry-run --json
+
+# Push reel : cree uniquement les lignes manquantes (idempotent).
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --batch-size 50
+
+# Upsert : PATCH les lignes deja presentes au lieu de les sauter.
+python -m tools.csv_to_baserow \
+    --input options_accessoires_master.csv \
+    --table-id 941070 \
+    --upsert
+```
+
+La cle de dedup est `model,size,option_code` par defaut
+(`--unique-key` pour la changer). `--field-map` reprend la meme
+convention que `baserow_to_decoder` (ex. `--field-map model=Modele
+option_code=Code`). Le rapport JSON expose `created`, `updated`,
+`skipped`, `errors`.
+
 ### Synchronisation du decodeur de designation depuis Baserow
 
 La chaine de designation GALLETTI (`PLP052HS2B A000CE000I00110 0000000I000000000000`)

@@ -190,6 +190,60 @@ class BaserowClient:
         self._cache.invalidate(lambda key: isinstance(key, tuple) and len(key) >= 2 and key[1] == table_id)
         return self._unwrap(response)
 
+    def create_rows(
+        self,
+        table_id: int,
+        payloads: list[dict[str, Any]],
+        *,
+        user_field_names: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Batch-create up to ~200 rows in one Baserow call.
+
+        Baserow caps the per-batch payload at 200 items; callers must chunk.
+        """
+
+        if not payloads:
+            return []
+        params = {"user_field_names": str(user_field_names).lower()}
+        response = self._request_with_retries(
+            "POST",
+            f"/api/database/rows/table/{table_id}/batch/",
+            params=params,
+            json={"items": payloads},
+        )
+        self._cache.invalidate(
+            lambda key: isinstance(key, tuple) and len(key) >= 2 and key[1] == table_id
+        )
+        data = self._unwrap(response)
+        items = data.get("items")
+        if not isinstance(items, list):
+            raise BaserowError(
+                f"Unexpected batch response shape: missing 'items' (got {data!r})."
+            )
+        return [item for item in items if isinstance(item, dict)]
+
+    def update_row(
+        self,
+        table_id: int,
+        row_id: int,
+        payload: dict[str, Any],
+        *,
+        user_field_names: bool = True,
+    ) -> dict[str, Any]:
+        """Patch an existing row. Only fields present in `payload` are touched."""
+
+        params = {"user_field_names": str(user_field_names).lower()}
+        response = self._request_with_retries(
+            "PATCH",
+            f"/api/database/rows/table/{table_id}/{row_id}/",
+            params=params,
+            json=payload,
+        )
+        self._cache.invalidate(
+            lambda key: isinstance(key, tuple) and len(key) >= 2 and key[1] == table_id
+        )
+        return self._unwrap(response)
+
     def ping(self) -> bool:
         """Return True if the configured token can list any database row endpoint."""
 

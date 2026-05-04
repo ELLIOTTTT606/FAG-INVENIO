@@ -144,6 +144,69 @@ def test_create_row_invalidates_cache_for_table() -> None:
     assert counts["POST"] == 1
 
 
+def test_create_rows_batch_posts_items_and_returns_created_payloads() -> None:
+    captured: dict[str, object] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["method"] = request.method
+        captured["body"] = request.read()
+        return httpx.Response(
+            200,
+            json={"items": [{"id": 1, "label": "a"}, {"id": 2, "label": "b"}]},
+        )
+
+    config = BaserowConfig(
+        base_url="https://baserow.test", token="dummy", cache_ttl_seconds=0
+    )
+    with _client_with_handler(httpx.MockTransport(handle), config=config) as client:
+        out = client.create_rows(7, [{"label": "a"}, {"label": "b"}])
+
+    assert captured["method"] == "POST"
+    assert "/table/7/batch/" in str(captured["url"])
+    assert b'"items"' in captured["body"]  # type: ignore[arg-type]
+    assert [row["id"] for row in out] == [1, 2]
+
+
+def test_create_rows_short_circuits_on_empty_payload() -> None:
+    def handle(_: httpx.Request) -> httpx.Response:
+        raise AssertionError("should not call Baserow with an empty batch")
+
+    with _client_with_handler(httpx.MockTransport(handle)) as client:
+        assert client.create_rows(7, []) == []
+
+
+def test_update_row_patches_and_invalidates_cache() -> None:
+    counts = {"GET": 0, "PATCH": 0}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            counts["GET"] += 1
+            return httpx.Response(200, json={"results": [{"id": counts["GET"]}], "next": None})
+        counts["PATCH"] += 1
+        return httpx.Response(200, json={"id": 99, "label": "patched"})
+
+    config = BaserowConfig(
+        base_url="https://baserow.test", token="dummy", cache_ttl_seconds=60
+    )
+    with _client_with_handler(httpx.MockTransport(handle), config=config) as client:
+        client.list_rows(11)  # warms the cache
+        result = client.update_row(11, 99, {"label": "patched"})
+        client.list_rows(11)  # should hit the server again
+
+    assert result["label"] == "patched"
+    assert counts["PATCH"] == 1
+    assert counts["GET"] == 2  # cache invalidated by the PATCH
+
+
+def test_create_rows_raises_on_unexpected_response_shape() -> None:
+    def handle(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"oops": True})
+
+    with _client_with_handler(httpx.MockTransport(handle)) as client, pytest.raises(BaserowError):
+        client.create_rows(7, [{"label": "a"}])
+
+
 def test_ping_returns_false_on_error() -> None:
     def handle(_: httpx.Request) -> httpx.Response:
         return httpx.Response(403, text="nope")

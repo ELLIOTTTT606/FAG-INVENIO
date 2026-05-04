@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Client } from '../api/contacts'
 import { NewClientModal } from '../components/NewClientModal'
 
 describe('NewClientModal', () => {
@@ -8,12 +9,12 @@ describe('NewClientModal', () => {
   })
 
   it('does not render when closed', () => {
-    render(<NewClientModal open={false} onClose={vi.fn()} onCreated={vi.fn()} />)
+    render(<NewClientModal open={false} onClose={vi.fn()} onSaved={vi.fn()} />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('auto-derives the department from the postal code', () => {
-    render(<NewClientModal open onClose={vi.fn()} onCreated={vi.fn()} />)
+    render(<NewClientModal open onClose={vi.fn()} onSaved={vi.fn()} />)
     const department = screen.getByLabelText(/département/i) as HTMLInputElement
     expect(department.value).toBe('')
 
@@ -29,7 +30,7 @@ describe('NewClientModal', () => {
   })
 
   it('lets the user override the auto-derived department', () => {
-    render(<NewClientModal open onClose={vi.fn()} onCreated={vi.fn()} />)
+    render(<NewClientModal open onClose={vi.fn()} onSaved={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/code postal/i), {
       target: { value: '69001' },
     })
@@ -44,10 +45,11 @@ describe('NewClientModal', () => {
     expect(department.value).toBe('01')
   })
 
-  it('POSTs the form, calls onCreated and onClose on success', async () => {
+  it('POSTs the form, calls onSaved and onClose on success', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          id: 7,
           client_code: 'C-NEW',
           client_name: 'Acme',
           postal_code: '75015',
@@ -58,9 +60,9 @@ describe('NewClientModal', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const onCreated = vi.fn()
+    const onSaved = vi.fn()
     const onClose = vi.fn()
-    render(<NewClientModal open onClose={onClose} onCreated={onCreated} />)
+    render(<NewClientModal open onClose={onClose} onSaved={onSaved} />)
 
     fireEvent.change(screen.getByLabelText(/code client/i), { target: { value: 'c-new' } })
     fireEvent.change(screen.getByLabelText(/nom du client/i), { target: { value: 'Acme' } })
@@ -69,8 +71,10 @@ describe('NewClientModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /créer le client/i }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/clients')
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toContain('/clients')
+    expect((init as RequestInit).method).toBe('POST')
+    const body = JSON.parse((init as RequestInit).body as string)
     expect(body).toEqual({
       client_code: 'c-new',
       client_name: 'Acme',
@@ -78,16 +82,96 @@ describe('NewClientModal', () => {
       department: '75',
     })
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(onClose).toHaveBeenCalled()
-    expect(onCreated.mock.calls[0][0].client_code).toBe('C-NEW')
+    expect(onSaved.mock.calls[0][0].client_code).toBe('C-NEW')
+  })
+
+  it('pre-fills the form when initial is provided and PATCHes on save', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 42,
+          client_code: 'C-EDIT',
+          client_name: 'Renamed',
+          postal_code: '69001',
+          department: '69',
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const initial: Client = {
+      id: 42,
+      client_code: 'C-EDIT',
+      client_name: 'Original',
+      postal_code: '69001',
+      department: '69',
+    }
+    const onSaved = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <NewClientModal
+        open
+        onClose={onClose}
+        onSaved={onSaved}
+        initial={initial}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: /modifier original/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/code client/i)).toHaveValue('C-EDIT')
+    expect(screen.getByLabelText(/nom du client/i)).toHaveValue('Original')
+
+    fireEvent.change(screen.getByLabelText(/nom du client/i), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getByRole('button', { name: /enregistrer/i }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toBe('/clients/42')
+    expect((init as RequestInit).method).toBe('PATCH')
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      client_code: 'C-EDIT',
+      client_name: 'Renamed',
+      postal_code: '69001',
+      department: '69',
+    })
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(onSaved.mock.calls[0][0].client_name).toBe('Renamed')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('surfaces 404 from PATCH without closing the dialog', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('gone', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onClose = vi.fn()
+    render(
+      <NewClientModal
+        open
+        onClose={onClose}
+        onSaved={vi.fn()}
+        initial={{
+          id: 1,
+          client_code: 'C-X',
+          client_name: 'X',
+          postal_code: '75015',
+          department: '75',
+        }}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /enregistrer/i }))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('shows the API error message and does not close on 409', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('exists', { status: 409 }))
     vi.stubGlobal('fetch', fetchMock)
     const onClose = vi.fn()
-    render(<NewClientModal open onClose={onClose} onCreated={vi.fn()} />)
+    render(<NewClientModal open onClose={onClose} onSaved={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText(/code client/i), { target: { value: 'c-dup' } })
     fireEvent.change(screen.getByLabelText(/nom du client/i), { target: { value: 'X' } })
@@ -99,7 +183,7 @@ describe('NewClientModal', () => {
   })
 
   it('disables the submit button while the form is invalid', () => {
-    render(<NewClientModal open onClose={vi.fn()} onCreated={vi.fn()} />)
+    render(<NewClientModal open onClose={vi.fn()} onSaved={vi.fn()} />)
     const submit = screen.getByRole('button', { name: /créer le client/i })
     expect(submit).toBeDisabled()
 

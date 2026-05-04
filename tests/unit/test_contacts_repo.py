@@ -10,6 +10,7 @@ from src.services.contacts_repo import (
     BaserowContactsRepository,
     BaserowTables,
     Client,
+    ClientNotFoundError,
     Contact,
     ContactsForDepartment,
     DuplicateClientError,
@@ -116,8 +117,9 @@ def test_contacts_for_department_to_dict_serializes_nones() -> None:
 
 
 def test_client_to_dict_round_trip() -> None:
-    client = Client("C1", "Foo", "75001", "75")
+    client = Client("C1", "Foo", "75001", "75", id=42)
     assert client.to_dict() == {
+        "id": 42,
         "client_code": "C1",
         "client_name": "Foo",
         "postal_code": "75001",
@@ -166,6 +168,110 @@ def test_baserow_create_client_posts_when_code_is_unique() -> None:
     assert isinstance(body, bytes)
     assert b'"client_name":"Acme"' in body or b'"client_name": "Acme"' in body
     assert b'"client_code":"C42"' in body or b'"client_code": "C42"' in body
+
+
+def test_mock_create_client_assigns_an_incrementing_id() -> None:
+    repo = MockContactsRepository(clients=())
+    first = repo.create_client(Client("C1", "First", "75015", "75"))
+    second = repo.create_client(Client("C2", "Second", "75015", "75"))
+    assert first.id == 1
+    assert second.id == 2
+
+
+def test_mock_update_client_modifies_existing_row() -> None:
+    repo = MockContactsRepository(clients=())
+    created = repo.create_client(Client("C1", "Old name", "75015", "75"))
+    updated = repo.update_client(
+        created.id,  # type: ignore[arg-type]
+        Client("c1", "New name", "75015", "75"),
+    )
+    assert updated.id == created.id
+    assert updated.client_name == "New name"
+    [reloaded] = repo.search_clients("new name")
+    assert reloaded.client_name == "New name"
+
+
+def test_mock_update_client_can_reuse_same_code() -> None:
+    repo = MockContactsRepository(clients=())
+    created = repo.create_client(Client("C1", "Foo", "75015", "75"))
+    updated = repo.update_client(
+        created.id,  # type: ignore[arg-type]
+        Client("C1", "Foo bar", "75015", "75"),
+    )
+    assert updated.client_name == "Foo bar"
+
+
+def test_mock_update_client_rejects_code_used_by_other_row() -> None:
+    repo = MockContactsRepository(clients=())
+    repo.create_client(Client("C1", "First", "75015", "75"))
+    second = repo.create_client(Client("C2", "Second", "75015", "75"))
+    with pytest.raises(DuplicateClientError):
+        repo.update_client(
+            second.id,  # type: ignore[arg-type]
+            Client("c1", "Second renamed", "75015", "75"),
+        )
+
+
+def test_mock_update_client_raises_when_id_does_not_exist() -> None:
+    repo = MockContactsRepository()
+    with pytest.raises(ClientNotFoundError):
+        repo.update_client(99999, Client("X", "X", "75015", "75"))
+
+
+def test_baserow_update_client_patches_when_id_matches() -> None:
+    rows = [{"id": 42, "client_code": "C1", "client_name": "Old", "postal_code": "75015", "department": "75"}]
+    patched: dict[str, object] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"results": rows, "next": None})
+        patched["url"] = str(request.url)
+        patched["body"] = request.read()
+        return httpx.Response(200, json={"id": 42, "client_code": "C1", "client_name": "New"})
+
+    repo = BaserowContactsRepository(
+        client=_baserow_client(httpx.MockTransport(handle)),
+        tables=BaserowTables(clients=10, contacts_force_vente=20, contacts_solution=30),
+    )
+    updated = repo.update_client(42, Client("c1", "New", "75015", "75"))
+    assert updated.id == 42 and updated.client_name == "New"
+    assert "/table/10/42/" in str(patched["url"])
+    body = patched["body"]
+    assert isinstance(body, bytes)
+    assert b'"client_name":"New"' in body or b'"client_name": "New"' in body
+
+
+def test_baserow_update_client_rejects_duplicate_code() -> None:
+    rows = [
+        {"id": 42, "client_code": "C1", "client_name": "A", "postal_code": "75015", "department": "75"},
+        {"id": 99, "client_code": "C2", "client_name": "B", "postal_code": "69001", "department": "69"},
+    ]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"results": rows, "next": None})
+        return httpx.Response(500, text="should not PATCH on duplicate")
+
+    repo = BaserowContactsRepository(
+        client=_baserow_client(httpx.MockTransport(handle)),
+        tables=BaserowTables(clients=10, contacts_force_vente=20, contacts_solution=30),
+    )
+    with pytest.raises(DuplicateClientError):
+        repo.update_client(99, Client("c1", "Renamed", "69001", "69"))
+
+
+def test_baserow_update_client_raises_when_id_missing() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"results": [], "next": None})
+        return httpx.Response(500, text="should not PATCH when id absent")
+
+    repo = BaserowContactsRepository(
+        client=_baserow_client(httpx.MockTransport(handle)),
+        tables=BaserowTables(clients=10, contacts_force_vente=20, contacts_solution=30),
+    )
+    with pytest.raises(ClientNotFoundError):
+        repo.update_client(404, Client("X", "X", "75015", "75"))
 
 
 def test_baserow_create_client_rejects_duplicate_via_dataset() -> None:

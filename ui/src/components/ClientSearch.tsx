@@ -4,11 +4,12 @@ import { searchClients } from '../api/contacts'
 
 interface Props {
   onSelect: (client: Client) => void
+  onEdit?: (client: Client) => void
 }
 
 const DEBOUNCE_MS = 250
 
-export function ClientSearch({ onSelect }: Props) {
+export function ClientSearch({ onSelect, onEdit }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Client[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -68,11 +69,11 @@ export function ClientSearch({ onSelect }: Props) {
       {results.length > 0 ? (
         <ul className="overflow-hidden rounded-xl border border-ink-muted/15 divide-y divide-ink-muted/10">
           {results.map((client) => (
-            <li key={client.client_code}>
+            <li key={client.id ?? client.client_code} className="flex items-stretch">
               <button
                 type="button"
                 onClick={() => onSelect(client)}
-                className="flex w-full items-baseline justify-between gap-4 px-4 py-3 text-left text-sm transition hover:bg-accent-subtle/40"
+                className="flex flex-1 items-baseline justify-between gap-4 px-4 py-3 text-left text-sm transition hover:bg-accent-subtle/40"
               >
                 <span className="font-medium">{client.client_name}</span>
                 <span className="text-xs text-ink-muted">
@@ -80,6 +81,18 @@ export function ClientSearch({ onSelect }: Props) {
                   {client.department}
                 </span>
               </button>
+              {onEdit && client.id != null ? (
+                <button
+                  type="button"
+                  onClick={() => onEdit(client)}
+                  className="border-l border-ink-muted/10 px-3 text-xs text-ink-muted transition hover:bg-accent-subtle/40 hover:text-accent"
+                  data-testid={`edit-client-${client.id}`}
+                  aria-label={`Modifier ${client.client_name}`}
+                  title={`Modifier ${client.client_name}`}
+                >
+                  ✎
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

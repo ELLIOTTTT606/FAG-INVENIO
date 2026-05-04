@@ -79,4 +79,45 @@ describe('ClientSearch', () => {
     })
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
   })
+
+  it('renders an edit button per result when onEdit is provided and a client has an id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: 7,
+            client_code: 'C1',
+            client_name: 'Acme Lyon',
+            postal_code: '69001',
+            department: '69',
+          },
+          {
+            client_code: 'C2',
+            client_name: 'No Id Co',
+            postal_code: '75015',
+            department: '75',
+          },
+        ]),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onSelect = vi.fn()
+    const onEdit = vi.fn()
+    render(<ClientSearch onSelect={onSelect} onEdit={onEdit} />)
+    fireEvent.change(screen.getByLabelText(/rechercher un client/i), {
+      target: { value: 'lyon' },
+    })
+    await waitFor(() => expect(screen.getByText('Acme Lyon')).toBeInTheDocument())
+
+    const editButton = screen.getByTestId('edit-client-7')
+    fireEvent.click(editButton)
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onEdit.mock.calls[0][0].client_code).toBe('C1')
+    expect(onSelect).not.toHaveBeenCalled()
+
+    // No id => no edit button on that row.
+    expect(screen.queryByLabelText(/Modifier No Id Co/i)).not.toBeInTheDocument()
+  })
 })

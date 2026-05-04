@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../api/client'
 import type { Client } from '../api/contacts'
-import { createClient } from '../api/contacts'
+import { createClient, updateClient } from '../api/contacts'
 import { departmentFromPostalCode } from '../lib/postalCode'
 
 interface Props {
   open: boolean
   onClose: () => void
-  onCreated: (client: Client) => void
+  onSaved: (client: Client) => void
+  initial?: Client | null
 }
 
 interface FormState {
@@ -29,8 +30,20 @@ const EMPTY: FormState = {
 const POSTAL_RE = /^\d{5}$/
 const DEPARTMENT_RE = /^(2A|2B|\d{2,3})$/
 
-export function NewClientModal({ open, onClose, onCreated }: Props) {
-  const [form, setForm] = useState<FormState>(EMPTY)
+function fromInitial(initial: Client | null | undefined): FormState {
+  if (!initial) return EMPTY
+  return {
+    client_code: initial.client_code,
+    client_name: initial.client_name,
+    postal_code: initial.postal_code,
+    department: initial.department,
+    departmentTouched: true,
+  }
+}
+
+export function NewClientModal({ open, onClose, onSaved, initial }: Props) {
+  const isEdit = Boolean(initial?.id)
+  const [form, setForm] = useState<FormState>(() => fromInitial(initial))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,8 +52,12 @@ export function NewClientModal({ open, onClose, onCreated }: Props) {
       setForm(EMPTY)
       setError(null)
       setSubmitting(false)
+      return
     }
-  }, [open])
+    setForm(fromInitial(initial))
+    setError(null)
+    setSubmitting(false)
+  }, [open, initial])
 
   const derivedDepartment = useMemo(
     () => departmentFromPostalCode(form.postal_code),
@@ -61,17 +78,24 @@ export function NewClientModal({ open, onClose, onCreated }: Props) {
     if (!canSubmit) return
     setSubmitting(true)
     setError(null)
+    const payload: Client = {
+      client_code: form.client_code.trim(),
+      client_name: form.client_name.trim(),
+      postal_code: form.postal_code.trim(),
+      department: department.toUpperCase(),
+    }
     try {
-      const created = await createClient({
-        client_code: form.client_code.trim(),
-        client_name: form.client_name.trim(),
-        postal_code: form.postal_code.trim(),
-        department: department.toUpperCase(),
-      })
-      onCreated(created)
+      const saved = isEdit && initial?.id
+        ? await updateClient(initial.id, payload)
+        : await createClient(payload)
+      onSaved(saved)
       onClose()
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Erreur réseau lors de la création.'
+      const message = err instanceof ApiError
+        ? err.message
+        : isEdit
+          ? 'Erreur réseau lors de la modification.'
+          : 'Erreur réseau lors de la création.'
       setError(message)
     } finally {
       setSubmitting(false)
@@ -94,7 +118,7 @@ export function NewClientModal({ open, onClose, onCreated }: Props) {
       >
         <header className="space-y-1">
           <h2 id="new-client-title" className="text-xl font-semibold">
-            Ajouter un nouveau client
+            {isEdit ? `Modifier ${initial?.client_name ?? 'le client'}` : 'Ajouter un nouveau client'}
           </h2>
           <p className="text-xs text-ink-muted">
             Sera enregistré dans Baserow (table CLIENTS) ou en mémoire selon la
@@ -197,7 +221,13 @@ export function NewClientModal({ open, onClose, onCreated }: Props) {
             disabled={!canSubmit}
             className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-50"
           >
-            {submitting ? 'Création…' : 'Créer le client'}
+            {submitting
+              ? isEdit
+                ? 'Enregistrement…'
+                : 'Création…'
+              : isEdit
+                ? 'Enregistrer'
+                : 'Créer le client'}
           </button>
         </footer>
       </form>

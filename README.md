@@ -112,7 +112,9 @@ Les pages livrees a ce stade :
   / Solution Habitat charges depuis `/contacts/department/{dep}`.
   Bouton "+ Nouveau client" ouvre un modal qui POSTe sur `/clients`
   (auto-deduit le departement depuis le code postal, override
-  possible).
+  possible). Le meme modal sert aussi a editer un client existant
+  (PATCH `/clients/{id}` declenche par l'icone ✎ dans la recherche
+  ou le bouton "Modifier" sur la fiche selectionnee).
 - `/options` — catalogue des options et accessoires pour le couple
   (model, type, size) extrait de l'import, accordeons par categorie,
   pre-cochage des options decodees de la designation, compteur global,

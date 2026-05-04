@@ -180,6 +180,84 @@ def test_create_client_returns_409_on_duplicate(mock_repo: MockContactsRepositor
     assert response.status_code == 409
 
 
+def test_update_client_returns_200_and_persists(
+    mock_repo: MockContactsRepository,
+) -> None:
+    client = TestClient(app)
+    created = client.post(
+        "/clients",
+        json={
+            "client_code": "C-EDIT",
+            "client_name": "Old name",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    ).json()
+    response = client.patch(
+        f"/clients/{created['id']}",
+        json={
+            "client_code": "C-EDIT",
+            "client_name": "New name",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == created["id"]
+    assert body["client_name"] == "New name"
+    [matched] = mock_repo.search_clients("new name")
+    assert matched.client_name == "New name"
+
+
+def test_update_client_returns_404_when_id_missing(mock_repo: MockContactsRepository) -> None:
+    _ = mock_repo
+    client = TestClient(app)
+    response = client.patch(
+        "/clients/999999",
+        json={
+            "client_code": "X",
+            "client_name": "X",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    )
+    assert response.status_code == 404
+
+
+def test_update_client_returns_409_on_duplicate_code(mock_repo: MockContactsRepository) -> None:
+    client = TestClient(app)
+    a = client.post(
+        "/clients",
+        json={
+            "client_code": "C-A",
+            "client_name": "A",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    ).json()
+    client.post(
+        "/clients",
+        json={
+            "client_code": "C-B",
+            "client_name": "B",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    )
+    _ = mock_repo  # populated through the API above
+    response = client.patch(
+        f"/clients/{a['id']}",
+        json={
+            "client_code": "C-B",  # collides with the second client
+            "client_name": "A renamed",
+            "postal_code": "75015",
+            "department": "75",
+        },
+    )
+    assert response.status_code == 409
+
+
 def test_create_client_validates_postal_and_department(
     mock_repo: MockContactsRepository,
 ) -> None:

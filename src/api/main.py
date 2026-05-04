@@ -19,6 +19,7 @@ from src.services.contacts_repo import (
     Client as ClientDto,
 )
 from src.services.contacts_repo import (
+    ClientNotFoundError,
     ContactsRepository,
     DuplicateClientError,
     make_repository_from_env,
@@ -129,7 +130,7 @@ def search_clients(
     q: str = Query(..., min_length=0, description="Free-text query."),
     limit: int = Query(10, ge=1, le=50),
     repo: ContactsRepository = Depends(get_contacts_repository),
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     return [c.to_dict() for c in repo.search_clients(q, limit=limit)]
 
 
@@ -141,7 +142,7 @@ def search_clients(
 def create_client(
     payload: NewClientPayload,
     repo: ContactsRepository = Depends(get_contacts_repository),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     client = ClientDto(
         client_code=payload.client_code,
         client_name=payload.client_name,
@@ -155,6 +156,32 @@ def create_client(
     except ValueError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
     return created.to_dict()
+
+
+@app.patch(
+    "/clients/{client_id}",
+    summary="Update an existing client (PATCH on the Baserow CLIENTS table)",
+)
+def update_client(
+    client_id: int,
+    payload: NewClientPayload,
+    repo: ContactsRepository = Depends(get_contacts_repository),
+) -> dict[str, Any]:
+    client = ClientDto(
+        client_code=payload.client_code,
+        client_name=payload.client_name,
+        postal_code=payload.postal_code,
+        department=payload.department,
+    )
+    try:
+        updated = repo.update_client(client_id, client)
+    except ClientNotFoundError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+    except DuplicateClientError as err:
+        raise HTTPException(status_code=409, detail=str(err)) from err
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    return updated.to_dict()
 
 
 @app.get(

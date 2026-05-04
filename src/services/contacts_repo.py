@@ -46,9 +46,11 @@ class Client:
     client_name: str
     postal_code: str
     department: str
+    id: int | None = None
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
+            "id": self.id,
             "client_code": self.client_code,
             "client_name": self.client_name,
             "postal_code": self.postal_code,
@@ -76,6 +78,10 @@ class DuplicateClientError(RuntimeError):
     """Raised when an attempt to create a client uses an existing code."""
 
 
+class ClientNotFoundError(RuntimeError):
+    """Raised when an update targets a client id that does not exist."""
+
+
 class ContactsRepository(ABC):
     @abstractmethod
     def search_clients(self, query: str, limit: int = 10) -> list[Client]: ...
@@ -85,6 +91,9 @@ class ContactsRepository(ABC):
 
     @abstractmethod
     def create_client(self, client: Client) -> Client: ...
+
+    @abstractmethod
+    def update_client(self, client_id: int, client: Client) -> Client: ...
 
 
 # ---------------------------------------------------------------------------
@@ -134,9 +143,50 @@ class MockContactsRepository(ContactsRepository):
         clients: tuple[Client, ...] = _MOCK_CLIENTS,
         contacts: dict[str, ContactsForDepartment] | None = None,
     ) -> None:
-        # Mutable copy so create_client can append.
-        self._clients: list[Client] = list(clients)
+        # Auto-assign synthetic ids so the seed dataset is editable.
+        self._next_id = 1
+        self._clients: list[Client] = []
+        for client in clients:
+            self._clients.append(self._with_assigned_id(client))
         self._contacts = contacts if contacts is not None else _MOCK_DEPARTMENT_CONTACTS
+
+    def _with_assigned_id(self, client: Client) -> Client:
+        identified = Client(
+            client_code=client.client_code,
+            client_name=client.client_name,
+            postal_code=client.postal_code,
+            department=client.department,
+            id=self._next_id,
+        )
+        self._next_id += 1
+        return identified
+
+    def update_client(self, client_id: int, client: Client) -> Client:
+        normalized_code = client.client_code.strip().upper()
+        if not normalized_code:
+            raise ValueError("client_code is required")
+        index = next(
+            (i for i, existing in enumerate(self._clients) if existing.id == client_id),
+            None,
+        )
+        if index is None:
+            raise ClientNotFoundError(f"Client id {client_id} not found.")
+        for i, existing in enumerate(self._clients):
+            if i == index:
+                continue
+            if existing.client_code.upper() == normalized_code:
+                raise DuplicateClientError(
+                    f"Client code {normalized_code!r} is already used by another row."
+                )
+        updated = Client(
+            client_code=normalized_code,
+            client_name=client.client_name.strip(),
+            postal_code=client.postal_code.strip(),
+            department=client.department.strip().upper(),
+            id=client_id,
+        )
+        self._clients[index] = updated
+        return updated
 
     def create_client(self, client: Client) -> Client:
         normalized_code = client.client_code.strip().upper()
@@ -147,12 +197,12 @@ class MockContactsRepository(ContactsRepository):
                 raise DuplicateClientError(
                     f"Client with code {normalized_code!r} already exists."
                 )
-        new_client = Client(
+        new_client = self._with_assigned_id(Client(
             client_code=normalized_code,
             client_name=client.client_name.strip(),
             postal_code=client.postal_code.strip(),
             department=client.department.strip().upper(),
-        )
+        ))
         self._clients.append(new_client)
         return new_client
 
@@ -208,11 +258,13 @@ def _row_to_client(row: dict[str, Any]) -> Client | None:
     name = _first_str(row, "client_name", "Nom", "name")
     if not name:
         return None
+    raw_id = row.get("id")
     return Client(
         client_code=_first_str(row, "client_code", "Code", "code"),
         client_name=name,
         postal_code=_first_str(row, "postal_code", "Code postal", "cp"),
         department=_first_str(row, "department", "department_code", "Departement"),
+        id=raw_id if isinstance(raw_id, int) else None,
     )
 
 
@@ -254,12 +306,45 @@ class BaserowContactsRepository(ContactsRepository):
             "postal_code": client.postal_code.strip(),
             "department": client.department.strip().upper(),
         }
-        self._client.create_row(self._tables.clients, payload)
+        created = self._client.create_row(self._tables.clients, payload)
+        new_id = created.get("id") if isinstance(created.get("id"), int) else None
         return Client(
             client_code=normalized_code,
             client_name=payload["client_name"],
             postal_code=payload["postal_code"],
             department=payload["department"],
+            id=new_id,
+        )
+
+    def update_client(self, client_id: int, client: Client) -> Client:
+        normalized_code = client.client_code.strip().upper()
+        if not normalized_code:
+            raise ValueError("client_code is required")
+        found = False
+        for existing in self._client.iter_all_rows(self._tables.clients):
+            existing_id = existing.get("id")
+            existing_code = _first_str(existing, "client_code", "Code", "code")
+            if existing_id == client_id:
+                found = True
+            elif existing_code.upper() == normalized_code:
+                raise DuplicateClientError(
+                    f"Client code {normalized_code!r} is already used in Baserow."
+                )
+        if not found:
+            raise ClientNotFoundError(f"Client id {client_id} not found in Baserow.")
+        payload = {
+            "client_code": normalized_code,
+            "client_name": client.client_name.strip(),
+            "postal_code": client.postal_code.strip(),
+            "department": client.department.strip().upper(),
+        }
+        self._client.update_row(self._tables.clients, client_id, payload)
+        return Client(
+            client_code=normalized_code,
+            client_name=payload["client_name"],
+            postal_code=payload["postal_code"],
+            department=payload["department"],
+            id=client_id,
         )
 
     def search_clients(self, query: str, limit: int = 10) -> list[Client]:

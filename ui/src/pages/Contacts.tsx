@@ -17,6 +17,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState<DepartmentContacts | null>(null)
   const [status, setStatus] = useState<LoadStatus>('idle')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Client | null>(null)
 
   useEffect(() => {
     if (!department) {
@@ -47,6 +48,22 @@ export default function Contacts() {
     setDepartment(selected.department)
   }
 
+  const openCreate = () => {
+    setEditing(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (target: Client) => {
+    if (target.id == null) return
+    setEditing(target)
+    setModalOpen(true)
+  }
+
+  const handleSaved = (saved: Client) => {
+    handleClient(saved)
+    setEditing(null)
+  }
+
   const departmentLabel = department
     ? `${department} · ${findDepartment(department)?.name ?? 'Département'}`
     : 'Sélectionnez un département'
@@ -70,7 +87,7 @@ export default function Contacts() {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={openCreate}
               className="rounded-full border border-accent/40 px-4 py-2 text-xs font-medium text-accent transition hover:bg-accent-subtle/40"
               data-testid="open-new-client"
             >
@@ -78,15 +95,27 @@ export default function Contacts() {
             </button>
           </div>
 
-          <ClientSearch onSelect={handleClient} />
+          <ClientSearch onSelect={handleClient} onEdit={openEdit} />
 
           {client ? (
-            <div className="rounded-2xl border border-accent/30 bg-accent-subtle/30 p-4 text-sm">
-              <p className="font-medium">{client.client_name}</p>
-              <p className="text-ink-muted">
-                <code>{client.client_code}</code> · {client.postal_code} · département{' '}
-                {client.department}
-              </p>
+            <div className="flex items-start justify-between gap-3 rounded-2xl border border-accent/30 bg-accent-subtle/30 p-4 text-sm">
+              <div>
+                <p className="font-medium">{client.client_name}</p>
+                <p className="text-ink-muted">
+                  <code>{client.client_code}</code> · {client.postal_code} · département{' '}
+                  {client.department}
+                </p>
+              </div>
+              {client.id != null ? (
+                <button
+                  type="button"
+                  onClick={() => openEdit(client)}
+                  className="rounded-full border border-accent/30 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent-subtle"
+                  data-testid="edit-selected-client"
+                >
+                  Modifier
+                </button>
+              ) : null}
             </div>
           ) : null}
 
@@ -130,10 +159,12 @@ export default function Contacts() {
 
       <NewClientModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreated={(created) => {
-          handleClient(created)
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
         }}
+        onSaved={handleSaved}
+        initial={editing}
       />
     </section>
   )

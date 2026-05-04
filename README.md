@@ -194,6 +194,36 @@ sautes par defaut. Pour les activer :
 INVENIO_BASEROW_LIVE=1 pytest tests/contract -m live
 ```
 
+### Bench du parser sur un corpus reel
+
+Pour mesurer la qualite des parsers sur un dossier de fiches GALLETTI :
+
+```bash
+python -m tools.parser_bench \
+    --input ./corpus \
+    --output bench-report.json \
+    [--strict-schema]
+```
+
+Le script parse chaque `.docx` / `.pdf`, valide la sortie contre
+`pac_geg_schema.json`, agrege un rapport :
+
+  - distribution PAC vs GEG, taux de detection de la designation,
+  - top 10 des codes de warning,
+  - couverture par champ canonique (`conditions.cooling.*`,
+    `performance.heating.*`, `general.*`...) en %,
+  - stats de duree (min / p50 / p95 / max),
+  - detail par fiche (path, format, schema_valid, parse_error...).
+
+Sortie 0 si tout est parse sans erreur. Avec `--strict-schema`, sortie
+1 des qu'une fiche viole le schema. Idiomatique pour FA :
+
+```bash
+python -m tools.parser_bench --input ./fiches_galletti --output bench.json
+jq '.field_coverage["performance.cooling"]' bench.json   # spotter les
+                                                         # champs sous-extraits
+```
+
 ### Push d'un CSV options/accessoires vers Baserow
 
 Une fois le CSV maitre valide via `tools.validate_csv`, on le pousse en

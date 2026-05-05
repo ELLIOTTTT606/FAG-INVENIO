@@ -28,7 +28,10 @@ export async function fetchOptions(
   signal?: AbortSignal,
 ): Promise<OptionsResponse> {
   const params = new URLSearchParams({ model: ctx.model, type: ctx.type, size: ctx.size })
-  const response = await fetch(`/options?${params.toString()}`, { signal })
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || ''}/options?${params.toString()}`,
+    { signal },
+  )
   if (!response.ok) {
     throw new ApiError(`Catalogue options indisponible (${response.status})`, response.status)
   }

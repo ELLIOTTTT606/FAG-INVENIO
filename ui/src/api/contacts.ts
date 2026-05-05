@@ -25,7 +25,10 @@ export async function searchClients(query: string, signal?: AbortSignal): Promis
   const trimmed = query.trim()
   if (trimmed.length < 2) return []
   const params = new URLSearchParams({ q: trimmed })
-  const response = await fetch(`/clients/search?${params.toString()}`, { signal })
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || ''}/clients/search?${params.toString()}`,
+    { signal },
+  )
   if (!response.ok) {
     throw new ApiError(`Recherche clients echouee (${response.status})`, response.status)
   }
@@ -42,7 +45,7 @@ function clientPayload(input: Client): Record<string, string> {
 }
 
 export async function createClient(input: Client, signal?: AbortSignal): Promise<Client> {
-  const response = await fetch('/clients', {
+  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/clients`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(clientPayload(input)),
@@ -66,7 +69,7 @@ export async function updateClient(
   input: Client,
   signal?: AbortSignal,
 ): Promise<Client> {
-  const response = await fetch(`/clients/${clientId}`, {
+  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/clients/${clientId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(clientPayload(input)),
@@ -92,7 +95,10 @@ export async function fetchDepartmentContacts(
   department: string,
   signal?: AbortSignal,
 ): Promise<DepartmentContacts> {
-  const response = await fetch(`/contacts/department/${encodeURIComponent(department)}`, { signal })
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL || ''}/contacts/department/${encodeURIComponent(department)}`,
+    { signal },
+  )
   if (!response.ok) {
     throw new ApiError(
       `Contacts indisponibles pour le département ${department}`,

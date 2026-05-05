@@ -12,7 +12,8 @@ export async function parseFile(file: File): Promise<ParseResponse> {
   if (ext !== 'docx' && ext !== 'pdf') {
     throw new ApiError(`Unsupported file type .${ext}. Use .docx or .pdf.`, 415)
   }
-  const url = ext === 'docx' ? '/parse/docx' : '/parse/pdf'
+  const path = ext === 'docx' ? '/parse/docx' : '/parse/pdf'
+  const url = `${import.meta.env.VITE_API_URL || ''}${path}`
 
   const body = new FormData()
   body.append('file', file)

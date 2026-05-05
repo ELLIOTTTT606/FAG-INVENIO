@@ -19,7 +19,7 @@ function toBody(request: GenerationRequest): Record<string, unknown> {
 }
 
 export async function fetchPreviewHtml(request: GenerationRequest): Promise<string> {
-  const response = await fetch('/generate/preview', {
+  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/generate/preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(toBody(request)),
@@ -32,7 +32,7 @@ export async function fetchPreviewHtml(request: GenerationRequest): Promise<stri
 }
 
 export async function fetchPdfBlob(request: GenerationRequest): Promise<Blob> {
-  const response = await fetch('/generate/pdf', {
+  const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/generate/pdf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(toBody(request)),

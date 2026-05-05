@@ -1,9 +1,10 @@
-/parse/*     https://fag-invenio.onrender.com/parse/:splat     200
-/health      https://fag-invenio.onrender.com/health           200
-/clients/*   https://fag-invenio.onrender.com/clients/:splat   200
-/clients     https://fag-invenio.onrender.com/clients          200
+/parse/*  https://fag-invenio.onrender.com/parse/:splat  200
+/parse    https://fag-invenio.onrender.com/parse         200
+/health   https://fag-invenio.onrender.com/health        200
+/clients  https://fag-invenio.onrender.com/clients       200
+/clients/:id  https://fag-invenio.onrender.com/clients/:id  200
 /contacts/*  https://fag-invenio.onrender.com/contacts/:splat  200
-/options     https://fag-invenio.onrender.com/options          200
+/options  https://fag-invenio.onrender.com/options       200
 /generate/*  https://fag-invenio.onrender.com/generate/:splat  200
-/admin/*     https://fag-invenio.onrender.com/admin/:splat     200
-/*           /index.html                                        200
+/admin/*  https://fag-invenio.onrender.com/admin/:splat  200
+/*        /index.html                                     200

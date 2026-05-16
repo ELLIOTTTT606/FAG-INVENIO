@@ -10,6 +10,7 @@ const isCi = !!process.env.CI
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: ['**/_*.spec.ts'],
   fullyParallel: false,
   retries: isCi ? 1 : 0,
   workers: 1,

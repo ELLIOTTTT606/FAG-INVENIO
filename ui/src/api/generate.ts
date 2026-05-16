@@ -2,11 +2,17 @@ import { ApiError } from './client'
 import type { DepartmentContacts } from './contacts'
 import type { CanonicalRecord } from './types'
 
+export interface PlanAttachment {
+  name: string
+  dataUrl: string
+}
+
 export interface GenerationRequest {
   record: CanonicalRecord
   contacts?: DepartmentContacts | null
   selectedOptionCodes: string[]
   documentReference?: string
+  plans?: PlanAttachment[]
 }
 
 function toBody(request: GenerationRequest): Record<string, unknown> {
@@ -15,6 +21,10 @@ function toBody(request: GenerationRequest): Record<string, unknown> {
     contacts: request.contacts ?? null,
     selected_option_codes: request.selectedOptionCodes,
     document_reference: request.documentReference ?? null,
+    plans: (request.plans ?? []).map((plan) => ({
+      name: plan.name,
+      data_url: plan.dataUrl,
+    })),
   }
 }
 

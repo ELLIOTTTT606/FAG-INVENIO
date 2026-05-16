@@ -9,6 +9,7 @@ import pytest
 from src.services.pdf_generator import (
     GenerationContext,
     PdfEngineUnavailableError,
+    PlanImage,
     render_html,
     render_pdf,
     suggested_filename,
@@ -155,6 +156,46 @@ def test_render_pdf_raises_when_weasyprint_missing(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(builtins, "__import__", fake_import)
     with pytest.raises(PdfEngineUnavailableError):
         render_pdf(GenerationContext(record=_record()))
+
+
+_TINY_PNG_DATA_URL = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIA"
+    "AAUAAarVyFEAAAAASUVORK5CYII="
+)
+
+
+def test_render_html_includes_plans_section_when_provided() -> None:
+    ctx = GenerationContext(
+        record=_record(),
+        plans=(PlanImage(name="Vue de face", data_url=_TINY_PNG_DATA_URL),),
+    )
+    html = render_html(ctx)
+    assert 'id="plans"' in html
+    assert "Plans &amp; dimensions" in html
+    assert "Vue de face" in html
+    # TOC entry rendered when plans present.
+    assert 'href="#plans"' in html
+
+
+def test_render_html_skips_plans_section_when_empty() -> None:
+    html = render_html(GenerationContext(record=_record()))
+    assert 'id="plans"' not in html
+    assert 'href="#plans"' not in html
+
+
+def test_render_pdf_with_plans_returns_pdf_bytes() -> None:
+    pdf = render_pdf(
+        GenerationContext(
+            record=_record(),
+            plans=(
+                PlanImage(name="Plan 1", data_url=_TINY_PNG_DATA_URL),
+                PlanImage(name="Plan 2", data_url=_TINY_PNG_DATA_URL),
+            ),
+        )
+    )
+    assert pdf.startswith(b"%PDF-")
+    assert len(pdf) > 1000
 
 
 def test_suggested_filename_slugifies_machine_identity() -> None:

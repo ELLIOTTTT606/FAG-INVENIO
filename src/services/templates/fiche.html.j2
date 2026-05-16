@@ -60,6 +60,7 @@
   <ul class="toc">
     <li><a href="#performances">Données techniques de sélection</a></li>
     <li><a href="#options">Options retenues</a></li>
+    {% if plans %}<li><a href="#plans">Plans &amp; dimensions</a></li>{% endif %}
     <li><a href="#contacts">Contacts France Air</a></li>
   </ul>
 
@@ -186,9 +187,30 @@
   {% endif %}
 </section>
 
-{# ----- Contacts ----- #}
+{# ----- Plans / dimensions ----- #}
+{% if plans %}
 <section class="section">
   <p class="section-eyebrow">Section 3</p>
+  <h1 class="section-title" id="plans">Plans &amp; dimensions</h1>
+  <p style="margin-bottom: 5mm; color: #475569;">
+    {{ plans|length }} plan{% if plans|length > 1 %}s{% endif %} attache{% if plans|length > 1 %}s{% endif %} a la fiche.
+  </p>
+  <ul class="plan-list">
+    {% for plan in plans %}
+    <li class="plan">
+      <figure>
+        <img src="{{ plan.data_url }}" alt="{{ plan.name }}">
+        <figcaption>{{ plan.name }}</figcaption>
+      </figure>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{# ----- Contacts ----- #}
+<section class="section">
+  <p class="section-eyebrow">Section {% if plans %}4{% else %}3{% endif %}</p>
   <h1 class="section-title" id="contacts">Contacts France Air</h1>
   {% if contacts %}
     <p style="margin-bottom: 5mm; color: #475569;">

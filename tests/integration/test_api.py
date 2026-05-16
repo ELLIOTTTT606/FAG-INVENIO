@@ -381,6 +381,62 @@ def test_generate_pdf_returns_pdf_bytes_and_filename_header() -> None:
     assert response.content.startswith(b"%PDF-")
 
 
+_TINY_PNG_DATA_URL = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIA"
+    "AAUAAarVyFEAAAAASUVORK5CYII="
+)
+
+
+def test_generate_preview_renders_plans_section() -> None:
+    payload = _generation_payload()
+    payload["plans"] = [{"name": "Vue de face", "data_url": _TINY_PNG_DATA_URL}]
+    client = TestClient(app)
+    response = client.post("/generate/preview", json=payload)
+    assert response.status_code == 200
+    body = response.text
+    assert 'id="plans"' in body
+    assert "Vue de face" in body
+    assert 'href="#plans"' in body
+
+
+def test_generate_pdf_with_plans() -> None:
+    payload = _generation_payload()
+    payload["plans"] = [
+        {"name": "Plan 1", "data_url": _TINY_PNG_DATA_URL},
+        {"name": "Plan 2", "data_url": _TINY_PNG_DATA_URL},
+    ]
+    client = TestClient(app)
+    response = client.post("/generate/pdf", json=payload)
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF-")
+
+
+def test_generate_rejects_invalid_data_url() -> None:
+    payload = _generation_payload()
+    payload["plans"] = [
+        {
+            "name": "Pas un plan",
+            # Same length as _TINY_PNG_DATA_URL so pydantic min_length passes,
+            # but the MIME type is rejected by _validate_plans (text/plain).
+            "data_url": "data:text/plain;base64," + "A" * 100,
+        }
+    ]
+    client = TestClient(app)
+    response = client.post("/generate/preview", json=payload)
+    assert response.status_code == 400
+
+
+def test_generate_rejects_too_many_plans() -> None:
+    payload = _generation_payload()
+    payload["plans"] = [
+        {"name": f"Plan {i}", "data_url": _TINY_PNG_DATA_URL} for i in range(6)
+    ]
+    client = TestClient(app)
+    response = client.post("/generate/preview", json=payload)
+    assert response.status_code == 422  # pydantic max_length validation
+
+
 def test_parse_real_sample_file_if_present() -> None:
     sample = Path("examples/sample_galletti.docx")
     if not sample.exists():

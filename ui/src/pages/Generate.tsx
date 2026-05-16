@@ -7,7 +7,9 @@ import {
   fetchPreviewHtml,
   suggestedFilename,
   type GenerationRequest,
+  type PlanAttachment,
 } from '../api/generate'
+import { PlansUploader } from '../components/PlansUploader'
 import {
   readContacts,
   readImport,
@@ -21,6 +23,7 @@ export default function Generate() {
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [plans, setPlans] = useState<PlanAttachment[]>([])
 
   const importContext = useMemo(() => readImport(), [])
   const contacts = useMemo(() => readContacts<DepartmentContacts>(), [])
@@ -32,8 +35,9 @@ export default function Generate() {
       record: importContext.record,
       contacts: contacts ?? null,
       selectedOptionCodes,
+      plans,
     }
-  }, [importContext, contacts, selectedOptionCodes])
+  }, [importContext, contacts, selectedOptionCodes, plans])
 
   useEffect(() => {
     if (!request) {
@@ -109,6 +113,7 @@ export default function Generate() {
           <p className="mt-2 text-sm text-ink-muted">
             {selectedOptionCodes.length} option(s) retenues ·{' '}
             {contacts ? `département ${contacts.department}` : 'aucun contact sélectionné'}
+            {plans.length > 0 ? ` · ${plans.length} plan(s)` : ''}
           </p>
         </div>
         <button
@@ -121,6 +126,10 @@ export default function Generate() {
           {downloading ? 'Génération en cours…' : 'Télécharger le PDF'}
         </button>
       </header>
+
+      <div className="rounded-2xl border border-ink-muted/15 p-5">
+        <PlansUploader plans={plans} onChange={setPlans} />
+      </div>
 
       {status === 'loading' ? (
         <p role="status" className="text-sm text-ink-muted">

@@ -28,6 +28,7 @@ from src.services.options_catalog import OptionsCatalog, make_catalog_from_env
 from src.services.pdf_generator import (
     GenerationContext,
     PdfEngineUnavailableError,
+    PlanImage,
     render_html,
     render_pdf,
     suggested_filename,
@@ -199,6 +200,16 @@ def contacts_for_department(
     return repo.get_contacts_for_department(department).to_dict()
 
 
+_DATA_URL_RE = re.compile(r"^data:image/(png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$")
+_MAX_PLANS = 5
+_MAX_PLAN_BYTES = 4 * 1024 * 1024  # 4 MB per base64-encoded data URL
+
+
+class PlanPayload(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    data_url: str = Field(..., min_length=32)
+
+
 class GenerationRequest(BaseModel):
     """Payload sent by the UI to render the fiche."""
 
@@ -206,6 +217,24 @@ class GenerationRequest(BaseModel):
     contacts: dict[str, Any] | None = None
     selected_option_codes: list[str] = Field(default_factory=list)
     document_reference: str | None = None
+    plans: list[PlanPayload] = Field(default_factory=list, max_length=_MAX_PLANS)
+
+
+def _validate_plans(plans: list[PlanPayload]) -> tuple[PlanImage, ...]:
+    images: list[PlanImage] = []
+    for plan in plans:
+        if not _DATA_URL_RE.match(plan.data_url):
+            raise HTTPException(
+                status_code=400,
+                detail=f"plan {plan.name!r}: data_url must be a base64 PNG/JPEG/WebP.",
+            )
+        if len(plan.data_url) > _MAX_PLAN_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"plan {plan.name!r}: exceeds {_MAX_PLAN_BYTES} bytes.",
+            )
+        images.append(PlanImage(name=plan.name.strip(), data_url=plan.data_url))
+    return tuple(images)
 
 
 def _build_generation_context(payload: GenerationRequest) -> GenerationContext:
@@ -214,6 +243,7 @@ def _build_generation_context(payload: GenerationRequest) -> GenerationContext:
         contacts=payload.contacts,
         selected_option_codes=tuple(payload.selected_option_codes),
         document_reference=payload.document_reference,
+        plans=_validate_plans(payload.plans),
     )
 
 

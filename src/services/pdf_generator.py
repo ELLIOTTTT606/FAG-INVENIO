@@ -26,6 +26,7 @@ import jinja2
 __all__ = [
     "GenerationContext",
     "PdfEngineUnavailableError",
+    "PlanImage",
     "render_html",
     "render_pdf",
 ]
@@ -39,6 +40,14 @@ class PdfEngineUnavailableError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class PlanImage:
+    """An attached drawing (plan / dimensions / 3D view) for the PDF section."""
+
+    name: str
+    data_url: str  # full data URL: "data:image/png;base64,..."
+
+
+@dataclass(frozen=True)
 class GenerationContext:
     """Inputs needed by the template, in addition to the canonical record."""
 
@@ -47,6 +56,7 @@ class GenerationContext:
     selected_option_codes: tuple[str, ...] = ()
     document_reference: str | None = None
     generated_at: datetime | None = None
+    plans: tuple[PlanImage, ...] = ()
 
 
 def _load_text(name: str) -> str:
@@ -130,6 +140,7 @@ def render_html(context: GenerationContext) -> str:
         selected_options=selected,
         document_reference=document_reference,
         generated_at_fr=generated_at.strftime("%d-%m-%Y"),
+        plans=[{"name": plan.name, "data_url": plan.data_url} for plan in context.plans],
         stylesheet=_load_static("style.css"),
     )
 

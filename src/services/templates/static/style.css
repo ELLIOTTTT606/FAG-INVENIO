@@ -266,6 +266,42 @@ table.data tbody td.unit { text-align: right; color: #94A3B8; width: 18mm; }
   font-size: 8.5pt;
 }
 
+/* Plans / dimensions ------------------------------------------------------- */
+
+.plan-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6mm;
+}
+
+.plan-list .plan {
+  page-break-inside: avoid;
+  border: 1px solid #E2E8F0;
+  border-radius: 4mm;
+  padding: 4mm;
+  background: #FAFAFA;
+}
+
+.plan-list figure { margin: 0; }
+
+.plan-list figure img {
+  max-width: 100%;
+  max-height: 180mm;
+  display: block;
+  margin: 0 auto;
+}
+
+.plan-list figcaption {
+  margin-top: 3mm;
+  text-align: center;
+  font-size: 9pt;
+  color: #475569;
+  font-style: italic;
+}
+
 /* Contacts ----------------------------------------------------------------- */
 
 .contacts {

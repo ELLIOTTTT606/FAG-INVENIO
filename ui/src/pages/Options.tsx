@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo }    from 'react'
-import { useNavigate }                     from 'react-router-dom'
+import { Link, useNavigate }               from 'react-router-dom'
 import { useTheme, C }                     from '../lib/theme'
 import { loadMachine, loadProject, loadClient, loadOptions, saveOptions } from '../lib/sessionContext'
 import { Reveal, PageTransition, MonoLabel, Spinner } from '../components/ui/atoms'
@@ -135,27 +135,27 @@ export default function Options() {
           </Reveal>
 
           {/* ── Compteur options sélectionnées ── */}
-          {selected.size > 0 && (
-            <Reveal delay={0}>
-              <div
-                style={{
-                  display:      'flex',
-                  alignItems:   'center',
-                  gap:          12,
-                  padding:      '12px 20px',
-                  borderRadius: 12,
-                  background:   `${t.accent}10`,
-                  border:       `1px solid ${t.accent}25`,
-                  marginBottom: 32,
-                  fontSize:     14,
-                  color:        t.accent,
-                  fontWeight:   600,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {selected.size} option{selected.size > 1 ? 's' : ''} sélectionnée{selected.size > 1 ? 's' : ''}
+          <Reveal delay={0}>
+            <div
+              style={{
+                display:      'flex',
+                alignItems:   'center',
+                gap:          12,
+                padding:      '12px 20px',
+                borderRadius: 12,
+                background:   `${t.accent}10`,
+                border:       `1px solid ${t.accent}25`,
+                marginBottom: 32,
+                fontSize:     14,
+                color:        t.accent,
+                fontWeight:   600,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {selected.size} option(s) sélectionnée(s)
+              {selected.size > 0 && (
                 <button
                   onClick={() => setSelected(new Set())}
                   style={{
@@ -165,9 +165,9 @@ export default function Options() {
                 >
                   Tout désélectionner
                 </button>
-              </div>
-            </Reveal>
-          )}
+              )}
+            </div>
+          </Reveal>
 
           {/* ── Catalogue ── */}
           {loading ? (
@@ -210,6 +210,24 @@ export default function Options() {
           )}
         </div>
       </main>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 48px 32px' }}>
+        <Link
+          to="/generate"
+          onClick={() => saveOptions([...selected])}
+          style={{
+            padding:        '12px 28px',
+            borderRadius:   12,
+            background:     '#2f4a6f',
+            color:          '#fff',
+            textDecoration: 'none',
+            fontWeight:     600,
+            fontSize:       14,
+          }}
+        >
+          Continuer vers la génération
+        </Link>
+      </div>
 
       <BottomBar
         onBack={() => navigate('/contacts')}

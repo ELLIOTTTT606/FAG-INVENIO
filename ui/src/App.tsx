@@ -1,5 +1,5 @@
 import { useCallback }                   from 'react'
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { ThemeProvider, useTheme }       from './lib/theme'
 import { clearSession }                  from './lib/sessionContext'
 import { AnimatedBackground }            from './components/layout/AnimatedBackground'
@@ -95,9 +95,7 @@ function NotFound() {
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
+      <AppShell />
     </ThemeProvider>
   )
 }

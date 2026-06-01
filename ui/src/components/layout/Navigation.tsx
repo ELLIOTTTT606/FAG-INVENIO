@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/theme'
+import { BaserowBadge } from '../BaserowBadge'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Étapes du workflow
@@ -147,7 +148,9 @@ export function TopBar({ pathname, onHome }: TopBarProps) {
         </div>
       )}
 
-      {/* Toggle thème */}
+      {/* Baserow status + Toggle thème */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+        <BaserowBadge />
       <button
         onClick={toggleMode}
         aria-label={dark ? 'Passer en mode clair' : 'Passer en mode sombre'}
@@ -160,6 +163,7 @@ export function TopBar({ pathname, onHome }: TopBarProps) {
           : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
         }
       </button>
+      </div>
     </header>
   )
 }

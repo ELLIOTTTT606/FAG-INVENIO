@@ -14,6 +14,7 @@ import { BottomBar }                       from '../components/layout/Navigation
 import { getMediumLabel }  from '../lib/machines'
 import { FranceMap }       from '../components/FranceMap'
 import { NewClientModal }  from '../components/NewClientModal'
+import { findDepartment }  from '../data/departments'
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Contacts() {
@@ -145,6 +146,21 @@ export default function Contacts() {
             onSaved={(c: Client) => { setDept(c.department) }}
           />
 
+          {/* ── Heading département ── */}
+          {dept && (
+            <Reveal delay={250}>
+              <h2
+                style={{
+                  fontSize: 22, fontWeight: 700, color: t.text,
+                  marginBottom: 24,
+                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                }}
+              >
+                {dept} · {findDepartment(dept)?.name ?? dept}
+              </h2>
+            </Reveal>
+          )}
+
           {/* ── Contenu ── */}
           {loading ? (
             <div style={{ padding: '60px 0' }}>
@@ -182,7 +198,7 @@ export default function Contacts() {
                 )}
                 {contacts?.solution && !solution && (
                   <Reveal delay={560}>
-                    <ContactCard contact={contacts.solution} role="Contact Solution" dept="" />
+                    <SolutionCard contact={contacts.solution} />
                   </Reveal>
                 )}
               </div>
@@ -261,15 +277,16 @@ function ContactCard({ contact, role, dept }: { contact: ContactInfo; role: stri
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar name={contact.name ?? '?'} size={44} />
           <div>
-            <div
+            <h3
               style={{
                 fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
                 fontSize:      10, letterSpacing: '0.15em',
                 color:         t.muted, textTransform: 'uppercase', marginBottom: 4,
+                fontWeight:    600, margin: '0 0 4px',
               }}
             >
               {role}
-            </div>
+            </h3>
             <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>
               {contact.name ?? '—'}
             </div>
@@ -324,7 +341,7 @@ function SolutionCard({ contact }: { contact: ContactInfo }) {
         >
           Contact Solution
         </div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{contact.name}</div>
+        <h3 style={{ fontSize: 20, fontWeight: 700, color: t.text, margin: 0 }}>{contact.name}</h3>
         <div
           style={{
             fontFamily:    "'JetBrains Mono', ui-monospace, monospace",

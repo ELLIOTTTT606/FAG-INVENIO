@@ -25,11 +25,12 @@ export default function Contacts() {
   const client        = loadClient()
   const solution      = loadSolution()
 
-  const [contacts,   setContacts]   = useState<DepartmentContacts | null>(null)
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [dept,       setDept]       = useState(client?.department ?? '')
-  const [modalOpen,  setModalOpen]  = useState(false)
+  const [contacts,    setContacts]    = useState<DepartmentContacts | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [dept,        setDept]        = useState(client?.department ?? '')
+  const [clientName,  setClientName]  = useState(client?.name ?? '')
+  const [modalOpen,   setModalOpen]   = useState(false)
 
   // Charger les contacts depuis Baserow
   useEffect(() => {
@@ -81,7 +82,7 @@ export default function Contacts() {
                   margin:        0,
                 }}
               >
-                {client?.name || 'Client'}
+                {clientName || 'Client'}
               </h1>
               {dept && (
                 <div
@@ -143,7 +144,7 @@ export default function Contacts() {
           <NewClientModal
             open={modalOpen}
             onClose={() => setModalOpen(false)}
-            onSaved={(c: Client) => { setDept(c.department) }}
+            onSaved={(c: Client) => { setDept(c.department); setClientName(c.client_name) }}
           />
 
           {/* ── Heading département ── */}
@@ -332,16 +333,17 @@ function SolutionCard({ contact }: { contact: ContactInfo }) {
     >
       <Avatar name={contact.name ?? '?'} size={52} />
       <div style={{ flex: 1 }}>
-        <div
+        <h3
           style={{
             fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
             fontSize:      10, letterSpacing: '0.15em',
             color:         t.muted, textTransform: 'uppercase', marginBottom: 4,
+            fontWeight:    600, margin: '0 0 4px',
           }}
         >
-          Contact Solution
-        </div>
-        <h3 style={{ fontSize: 20, fontWeight: 700, color: t.text, margin: 0 }}>{contact.name}</h3>
+          Solution Habitat
+        </h3>
+        <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{contact.name}</div>
         <div
           style={{
             fontFamily:    "'JetBrains Mono', ui-monospace, monospace",

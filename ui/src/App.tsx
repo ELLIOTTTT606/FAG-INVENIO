@@ -5,6 +5,7 @@ import { clearSession }                  from './lib/sessionContext'
 import { AnimatedBackground }            from './components/layout/AnimatedBackground'
 import { TopBar }                        from './components/layout/Navigation'
 import Home     from './pages/Home'
+import Import   from './pages/Import'
 import Machine  from './pages/Machine'
 import Projet   from './pages/Projet'
 import Contacts from './pages/Contacts'
@@ -62,6 +63,7 @@ function AppShell() {
 
         <Routes>
           <Route path="/"         element={<Home />} />
+          <Route path="/import"   element={<Import />} />
           <Route path="/machine"  element={<Machine />} />
           <Route path="/projet"   element={<Projet />} />
           <Route path="/contacts" element={<Contacts />} />

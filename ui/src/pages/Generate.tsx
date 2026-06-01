@@ -49,11 +49,13 @@ export default function Generate() {
         return
       }
       if (!r.ok) throw new Error(`Erreur ${r.status}`)
+      const disposition = r.headers.get('Content-Disposition') ?? ''
+      const filename = disposition.match(/filename="?([^";\s]+)"?/)?.[1] ?? 'INVENIO.pdf'
       const blob = await r.blob()
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
-      a.download = `INVENIO_${ctx.machine.model}_${ctx.machine.size}.pdf`
+      a.download = filename
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {

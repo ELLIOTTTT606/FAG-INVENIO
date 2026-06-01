@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo }    from 'react'
 import { Link, useNavigate }               from 'react-router-dom'
 import { useTheme, C }                     from '../lib/theme'
-import { loadMachine, loadProject, loadClient, loadOptions, saveOptions } from '../lib/sessionContext'
+import { loadMachine, loadProject, loadClient, loadOptions, saveOptions, readImport } from '../lib/sessionContext'
 import { Reveal, PageTransition, MonoLabel, Spinner } from '../components/ui/atoms'
 import { BottomBar }                       from '../components/layout/Navigation'
 
@@ -34,8 +34,14 @@ export default function Options() {
   const { theme: t }  = useTheme()
   const navigate      = useNavigate()
   const machine       = loadMachine()
+  const importCtx     = readImport()
   const project       = loadProject()
   const client        = loadClient()
+
+  // Use machine from saveMachine(), fallback to imported record machine info
+  const machineModel  = machine?.model  || importCtx?.machine.model  || ''
+  const machineType   = machine          ? `${machine.family === 'PAC' ? 'H' : 'C'}${machine.acoustic ?? 'S'}` : (importCtx?.machine.type ?? '')
+  const machineSize   = (machine?.size   || importCtx?.machine.size  || '').padStart(3, '0')
 
   const [options,  setOptions]  = useState<Option[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set(loadOptions()))
@@ -45,14 +51,18 @@ export default function Options() {
 
   // Charger le catalogue depuis Baserow
   useEffect(() => {
-    if (!machine?.model) { setLoading(false); return }
-    const type = `${machine.family === 'PAC' ? 'H' : 'C'}${machine.acoustic ?? 'S'}`
-    const size = machine.size.padStart(3, '0')
-    fetchOptions(machine.model, type, size)
-      .then(data => setOptions(data.options ?? []))
+    if (!machineModel) { setLoading(false); return }
+    fetchOptions(machineModel, machineType, machineSize)
+      .then(data => {
+        const opts = data.options ?? []
+        setOptions(opts)
+        const cats = [...new Set(opts.map((o: Option) => o.category))]
+        setExpanded(new Set(cats))
+      })
       .catch(() => setError('Impossible de charger les options depuis Baserow.'))
       .finally(() => setLoading(false))
-  }, [machine])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Grouper par catégorie
   const grouped = useMemo(() => {
@@ -90,6 +100,25 @@ export default function Options() {
     <PageTransition pgKey="options">
       <main style={{ minHeight: '100vh', padding: '120px 48px 140px' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+
+          {/* ── Lien de navigation vers génération ── */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+            <Link
+              to="/generate"
+              onClick={() => saveOptions([...selected])}
+              style={{
+                padding:        '10px 24px',
+                borderRadius:   10,
+                background:     '#2f4a6f',
+                color:          '#fff',
+                textDecoration: 'none',
+                fontWeight:     600,
+                fontSize:       14,
+              }}
+            >
+              Continuer vers la génération
+            </Link>
+          </div>
 
           {/* ── En-tête ── */}
           <Reveal delay={50}>
@@ -211,24 +240,6 @@ export default function Options() {
         </div>
       </main>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 48px 32px' }}>
-        <Link
-          to="/generate"
-          onClick={() => saveOptions([...selected])}
-          style={{
-            padding:        '12px 28px',
-            borderRadius:   12,
-            background:     '#2f4a6f',
-            color:          '#fff',
-            textDecoration: 'none',
-            fontWeight:     600,
-            fontSize:       14,
-          }}
-        >
-          Continuer vers la génération
-        </Link>
-      </div>
-
       <BottomBar
         onBack={() => navigate('/contacts')}
         onNext={handleNext}
@@ -343,23 +354,13 @@ function CategoryAccordion({
                 }}
               >
                 {/* Checkbox */}
-                <div
-                  style={{
-                    width:          20, height: 20,
-                    borderRadius:   6,
-                    border:         `2px solid ${isChecked ? t.accent : t.borderStrong}`,
-                    background:     isChecked ? t.accent : 'transparent',
-                    display:        'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink:     0, marginTop: 2,
-                    transition:     'all 0.2s',
-                  }}
-                >
-                  {isChecked && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </div>
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => onToggleOption(opt.code)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ width: 20, height: 20, flexShrink: 0, marginTop: 2, cursor: 'pointer', accentColor: t.accent }}
+                />
 
                 {/* Contenu */}
                 <div style={{ flex: 1 }}>

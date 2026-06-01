@@ -5,7 +5,7 @@ import {
   loadMachine, loadProject, loadClient, loadSolution,
   saveProject, saveClient, saveSolution,
 } from '../lib/sessionContext'
-import type { ProjectState, ClientState, SolutionContact } from '../lib/sessionContext'
+import type { ClientState, SolutionContact } from '../lib/sessionContext'
 import {
   Reveal, PageTransition, GhostInput, GhostSelect, Avatar, LiveField, MonoLabel,
 } from '../components/ui/atoms'

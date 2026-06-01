@@ -23,7 +23,7 @@ export default function Machine() {
   const canNext = Boolean(model && size && family)
 
   const handleNext = () => {
-    if (!canNext || !machine) return
+    if (!canNext || !machine || !family) return
     saveMachine({
       model,
       size,
@@ -228,7 +228,7 @@ export default function Machine() {
 // ── Vue catalogue : tous les modèles groupés par fluide ───────────────────────
 function CatalogueView({
   onSelect,
-  fileRef,
+  fileRef: _fileRef,
 }: {
   onSelect:  (code: string) => void
   fileRef:   React.RefObject<HTMLInputElement>

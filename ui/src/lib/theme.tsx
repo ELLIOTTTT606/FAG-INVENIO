@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,7 +93,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggleMode = () =>
     setMode(m => {
       const next = m === 'light' ? 'dark' : 'light'
-      try { localStorage.setItem('invenio-theme', next) } catch {}
+      try { localStorage.setItem('invenio-theme', next) } catch { /* storage unavailable */ }
       return next
     })
 

@@ -2,10 +2,10 @@
 // Atomes UI — fidèles au design du JSX de référence
 // ─────────────────────────────────────────────────────────────────────────────
 import {
-  useState, useEffect, useRef,
+  useState, useEffect,
   type ReactNode, type CSSProperties, type InputHTMLAttributes,
 } from 'react'
-import { useTheme } from '../lib/theme'
+import { useTheme } from '../../lib/theme'
 
 // ── Reveal (animation d'apparition au montage) ────────────────────────────────
 interface RevealProps {

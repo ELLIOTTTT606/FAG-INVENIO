@@ -67,7 +67,7 @@ export default function Options() {
   const toggleOption = (code: string) => {
     setSelected(prev => {
       const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
+      if (next.has(code)) { next.delete(code) } else { next.add(code) }
       return next
     })
   }
@@ -75,7 +75,7 @@ export default function Options() {
   const toggleCategory = (cat: string) => {
     setExpanded(prev => {
       const next = new Set(prev)
-      next.has(cat) ? next.delete(cat) : next.add(cat)
+      if (next.has(cat)) { next.delete(cat) } else { next.add(cat) }
       return next
     })
   }

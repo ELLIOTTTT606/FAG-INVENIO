@@ -2,7 +2,7 @@
 // Session INVENIO — état partagé entre les 5 étapes
 // Stocké en sessionStorage pour survivre aux navigations React Router
 // ─────────────────────────────────────────────────────────────────────────────
-import type { AcousticType, MediumType } from './machines'
+import type { AcousticType, MachineFamily, MediumType } from './machines'
 import type { CanonicalRecord }           from '../api/types'
 import type { DepartmentContacts }         from '../api/contacts'
 
@@ -10,7 +10,7 @@ import type { DepartmentContacts }         from '../api/contacts'
 export interface MachineState {
   model:    string
   size:     string
-  family:   'PAC' | 'GEG' | null
+  family:   MachineFamily | null
   acoustic: AcousticType | null
   medium:   MediumType
 }
@@ -53,7 +53,7 @@ const KEYS = {
 
 // ── Helpers génériques ────────────────────────────────────────────────────────
 function save<T>(key: string, value: T): void {
-  try { sessionStorage.setItem(key, JSON.stringify(value)) } catch {}
+  try { sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* storage unavailable */ }
 }
 
 function load<T>(key: string): T | null {
@@ -66,7 +66,7 @@ function load<T>(key: string): T | null {
 }
 
 function clear(key: string): void {
-  try { sessionStorage.removeItem(key) } catch {}
+  try { sessionStorage.removeItem(key) } catch { /* storage unavailable */ }
 }
 
 // ── API publique ──────────────────────────────────────────────────────────────
@@ -111,7 +111,17 @@ export function clearSession(): void {
 // ── Rétrocompatibilité avec l'ancien sessionContext ────────────────────────────
 // (pour que les anciens tests et imports continuent de fonctionner)
 export const rememberImport         = (r: CanonicalRecord)  => saveRecord(r)
-export const readImport             = ()                    => { const r = loadRecord(); return r ? { record: r, data: r } : null }
+export const clearImport            = ()                    => clearRecord()
+export const readImport             = () => {
+  const r = loadRecord()
+  if (!r?.model) return null
+  return {
+    record: r,
+    data:   r,
+    machine: { model: r.model, type: r.type, size: r.size },
+    preselectedOptionCodes: r.options.filter(o => o.selected).map(o => o.code),
+  }
+}
 export const rememberSelectedOptions = (codes: string[])   => saveOptions(codes)
 export const readSelectedOptions    = ()                    => loadOptions()
 export const rememberContacts       = (c: DepartmentContacts) => saveContacts(c)

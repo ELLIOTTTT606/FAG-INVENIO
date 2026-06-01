@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../lib/theme'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +189,6 @@ export function BottomBar({
   wide    = false,
 }: BottomBarProps) {
   const { theme: t } = useTheme()
-  const navigate = useNavigate()
   const dark = t.mode === 'dark'
 
   const [hovBack, setHovBack]   = useState(false)

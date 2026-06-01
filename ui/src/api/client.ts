@@ -12,13 +12,8 @@ export class ApiError extends Error {
 const BASE = import.meta.env.VITE_API_URL || ''
 
 // ── Parser de fichier GALLETTI (DOCX ou PDF) ──────────────────────────────────
-export interface ParseResponse {
-  ok:    boolean
-  data:  Record<string, unknown>  // CanonicalRecord
-  model?: string
-  size?:  string
-  type?:  string
-}
+import type { ParseResponse } from './types'
+export type { CanonicalRecord, Warning, ParseResponse } from './types'
 
 export async function parseFile(file: File): Promise<ParseResponse> {
   const form = new FormData()

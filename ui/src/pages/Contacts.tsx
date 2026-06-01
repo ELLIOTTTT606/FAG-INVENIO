@@ -11,7 +11,7 @@ import {
   Reveal, PageTransition, Avatar, Spinner, MonoLabel,
 } from '../components/ui/atoms'
 import { BottomBar }                       from '../components/layout/Navigation'
-import { getMediumLabel, getFamilyLabel }  from '../lib/machines'
+import { getMediumLabel }  from '../lib/machines'
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Contacts() {
@@ -343,7 +343,6 @@ function ContactLine({ icon, value }: { icon: 'phone' | 'email'; value: string }
 
 // ── Bannière d'erreur ─────────────────────────────────────────────────────────
 function ErrorBanner({ message }: { message: string }) {
-  const { theme: t } = useTheme()
   return (
     <div
       style={{

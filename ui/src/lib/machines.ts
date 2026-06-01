@@ -92,11 +92,11 @@ export function getMediumLabel(medium: MediumType): string {
   return medium === 'air_eau' ? 'air/eau' : 'eau/eau'
 }
 
-export function getFamilyLabel(family: 'PAC' | 'GEG', medium: MediumType): string {
+export function getFamilyLabel(family: MachineFamily, medium: MediumType): string {
   const med = getMediumLabel(medium)
-  return family === 'PAC'
-    ? `Fiche de sélection d'une pompe à chaleur ${med}`
-    : `Fiche de sélection d'un groupe d'eau glacée ${med}`
+  return family === 'GEG'
+    ? `Fiche de sélection d'un groupe d'eau glacée ${med}`
+    : `Fiche de sélection d'une pompe à chaleur ${med}`
 }
 
 // Détection automatique depuis le nom de fichier GALLETTI (ex: PLP052HS.docx)

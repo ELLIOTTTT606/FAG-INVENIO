@@ -5,13 +5,15 @@ import {
   loadMachine, loadProject, loadClient, loadSolution,
   saveContacts,
 } from '../lib/sessionContext'
-import type { DepartmentContacts }         from '../api/contacts'
+import type { DepartmentContacts, Client } from '../api/contacts'
 import { fetchDepartmentContacts }         from '../api/contacts'
 import {
   Reveal, PageTransition, Avatar, Spinner, MonoLabel,
 } from '../components/ui/atoms'
 import { BottomBar }                       from '../components/layout/Navigation'
 import { getMediumLabel }  from '../lib/machines'
+import { FranceMap }       from '../components/FranceMap'
+import { NewClientModal }  from '../components/NewClientModal'
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Contacts() {
@@ -22,11 +24,11 @@ export default function Contacts() {
   const client        = loadClient()
   const solution      = loadSolution()
 
-  const [contacts, setContacts] = useState<DepartmentContacts | null>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
-
-  const dept = client?.department ?? ''
+  const [contacts,   setContacts]   = useState<DepartmentContacts | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const [dept,       setDept]       = useState(client?.department ?? '')
+  const [modalOpen,  setModalOpen]  = useState(false)
 
   // Charger les contacts depuis Baserow
   useEffect(() => {
@@ -108,6 +110,40 @@ export default function Contacts() {
               {project?.name ? ` · Projet ${project.name}` : ''}
             </div>
           </Reveal>
+
+          {/* ── Carte France ── */}
+          <Reveal delay={240}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32, flexWrap: 'wrap', marginBottom: 40 }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <FranceMap selected={dept} onSelect={setDept} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 }}>
+                <button
+                  data-testid="open-new-client"
+                  onClick={() => setModalOpen(true)}
+                  style={{
+                    padding:      '10px 20px',
+                    borderRadius: 10,
+                    border:       `1px solid ${t.border}`,
+                    background:   t.surface,
+                    color:        t.text,
+                    fontSize:     13,
+                    fontWeight:   600,
+                    cursor:       'pointer',
+                    fontFamily:   'inherit',
+                  }}
+                >
+                  + Nouveau client
+                </button>
+              </div>
+            </div>
+          </Reveal>
+
+          <NewClientModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSaved={(c: Client) => { setDept(c.department) }}
+          />
 
           {/* ── Contenu ── */}
           {loading ? (

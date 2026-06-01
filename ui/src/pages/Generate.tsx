@@ -1,119 +1,101 @@
-import { useState, useCallback }           from 'react'
-import { useNavigate }                     from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { Link, useNavigate }               from 'react-router-dom'
 import { useTheme, C }                     from '../lib/theme'
 import {
-  loadMachine, loadProject, loadClient,
-  loadSolution, loadContacts, loadOptions,
-  clearSession,
+  readImport, loadOptions, loadContacts, clearSession,
 } from '../lib/sessionContext'
-import { getFamilyLabel }                  from '../lib/machines'
-import { Reveal, PageTransition, MonoLabel, LiveField } from '../components/ui/atoms'
-import { BottomBar }                       from '../components/layout/Navigation'
+import { Reveal, PageTransition, MonoLabel } from '../components/ui/atoms'
+import { BottomBar }                         from '../components/layout/Navigation'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-type GenState = 'idle' | 'generating' | 'done' | 'error'
+const BASE = import.meta.env.VITE_API_URL || ''
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function coverUrl(model: string, size: string): string {
-  // Les PNG sont servis depuis ui/public/covers/ (ou /api/covers/ selon config)
-  return `/covers/${model}_${size}.png`
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 export default function Generate() {
-  const { theme: t }  = useTheme()
-  const navigate      = useNavigate()
-  const machine       = loadMachine()
-  const project       = loadProject()
-  const client        = loadClient()
-  const solution      = loadSolution()
-  const contacts      = loadContacts()
-  const optionCodes   = loadOptions()
+  const { theme: t } = useTheme()
+  const navigate     = useNavigate()
 
-  const [genState,  setGenState]  = useState<GenState>('idle')
-  const [progress,  setProgress]  = useState(0)
-  const [pdfUrl,    setPdfUrl]    = useState<string | null>(null)
-  const [error,     setError]     = useState<string | null>(null)
+  const ctx          = readImport()
+  const optionCodes  = loadOptions()
+  const contacts     = loadContacts()
 
-  const familyLabel = machine
-    ? getFamilyLabel(machine.family ?? 'PAC', machine.medium)
-    : ''
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [pdfError,    setPdfError]    = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
-  // ── Génération PDF ─────────────────────────────────────────────────────────
-  const generate = useCallback(async () => {
-    setGenState('generating')
-    setProgress(0)
-    setError(null)
+  useEffect(() => {
+    if (!ctx) return
+    fetch(`${BASE}/generate/preview`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ record: ctx.record, option_codes: optionCodes }),
+    })
+      .then(r => r.ok ? r.text() : Promise.reject(r))
+      .then(html => setPreviewHtml(html))
+      .catch(() => { /* preview unavailable */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    const tick = setInterval(() => setProgress(p => Math.min(p + 2, 90)), 100)
-
+  const handleDownload = useCallback(async () => {
+    if (!ctx) return
+    setDownloading(true)
+    setPdfError(null)
     try {
-      const body: Record<string, unknown> = {
-        machine: {
-          model:    machine?.model,
-          size:     machine?.size,
-          family:   machine?.family,
-          acoustic: machine?.acoustic,
-          medium:   machine?.medium,
-        },
-        project: {
-          number: project?.number,
-          name:   project?.name,
-        },
-        client: {
-          name:       client?.name,
-          code:       client?.code,
-          department: client?.department,
-        },
-        solution: solution
-          ? { name: solution.name, email: solution.email, phone: solution.phone }
-          : null,
-        contacts: contacts
-          ? { tci: contacts.tci, tcs: contacts.tcs }
-          : null,
-        selected_options: optionCodes,
-      }
-
-      const r = await fetch(`${import.meta.env.VITE_API_URL || ''}/generate/pdf`, {
+      const r = await fetch(`${BASE}/generate/pdf`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body:    JSON.stringify({ record: ctx.record, option_codes: optionCodes }),
       })
-
-      clearInterval(tick)
-
-      if (!r.ok) {
-        const detail = await r.text().catch(() => '')
-        throw new Error(detail || `Erreur ${r.status}`)
+      if (r.status === 503) {
+        setPdfError('WeasyPrint non disponible sur ce serveur.')
+        return
       }
-
-      // Réponse : blob PDF
+      if (!r.ok) throw new Error(`Erreur ${r.status}`)
       const blob = await r.blob()
-      setPdfUrl(URL.createObjectURL(blob))
-      setProgress(100)
-      setGenState('done')
-    } catch (err: unknown) {
-      clearInterval(tick)
-      setGenState('error')
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `INVENIO_${ctx.machine.model}_${ctx.machine.size}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      if (!pdfError) setPdfError(err instanceof Error ? err.message : 'Erreur inconnue')
+    } finally {
+      setDownloading(false)
     }
-  }, [machine, project, client, solution, contacts, optionCodes])
+  }, [ctx, optionCodes, pdfError])
 
-  const handleDownload = () => {
-    if (!pdfUrl) return
-    const a = document.createElement('a')
-    a.href  = pdfUrl
-    a.download = `INVENIO_${machine?.model}_${machine?.size}_${project?.name ?? 'fiche'}.pdf`
-      .replace(/[^a-zA-Z0-9_\-.]/g, '_')
-    a.click()
+  const handleReset = () => { clearSession(); navigate('/') }
+
+  // ── État vide ────────────────────────────────────────────────────────────────
+  if (!ctx) {
+    return (
+      <PageTransition pgKey="generate">
+        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px' }}>
+          <p style={{ fontSize: 18, color: t.dim, marginBottom: 24 }}>
+            Aucune fiche en cours
+          </p>
+          <Link
+            to="/import"
+            style={{
+              padding:        '12px 28px',
+              borderRadius:   12,
+              background:     t.accent,
+              color:          t.mode === 'dark' ? t.bg : '#fff',
+              textDecoration: 'none',
+              fontWeight:     600,
+              fontSize:       15,
+            }}
+          >
+            Aller à l'import
+          </Link>
+        </main>
+      </PageTransition>
+    )
   }
 
-  const handleReset = () => {
-    clearSession()
-    navigate('/')
-  }
+  const { machine } = ctx
+  const machineLabel = [machine.model, machine.size, machine.type].filter(Boolean).join(' ')
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Vue principale ───────────────────────────────────────────────────────────
   return (
     <PageTransition pgKey="generate">
       <main style={{ minHeight: '100vh', padding: '120px 48px 140px' }}>
@@ -130,355 +112,105 @@ export default function Generate() {
             <h1
               style={{
                 fontSize:      'clamp(40px, 5vw, 72px)',
-                fontWeight:    700, letterSpacing: '-0.035em', lineHeight: 1,
-                color:         t.text, margin: '0 0 52px',
+                fontWeight:    700,
+                letterSpacing: '-0.035em',
+                lineHeight:    1,
+                color:         t.text,
+                margin:        '0 0 52px',
               }}
             >
-              {genState === 'done'
-                ? 'Fiche prête. 🎉'
-                : genState === 'generating'
-                  ? 'Génération en cours…'
-                  : 'Vérifiez et générez.'}
+              Vérifiez et générez.
             </h1>
           </Reveal>
 
-          <div
-            style={{
-              display:             'grid',
-              gridTemplateColumns: '1fr 1.2fr',
-              gap:                 60,
-              alignItems:         'start',
-            }}
-          >
-            {/* ── Aperçu cover page ── */}
-            <Reveal delay={200}>
-              <div>
-                <MonoLabel style={{ marginBottom: 16 }}>Aperçu page de garde</MonoLabel>
-                <CoverPreview
-                  model={machine?.model ?? ''}
-                  size={machine?.size ?? ''}
-                  projectName={project?.name ?? ''}
-                  familyLabel={familyLabel}
-                />
-              </div>
+          {/* Récapitulatif */}
+          <Reveal delay={180}>
+            <div
+              style={{
+                padding:      24,
+                borderRadius: 16,
+                background:   t.surface,
+                border:       `1px solid ${t.border}`,
+                marginBottom: 32,
+                display:      'flex',
+                flexDirection:'column',
+                gap:          8,
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 600, color: t.text }}>{machineLabel}</p>
+              <p style={{ margin: 0, color: t.dim }}>{optionCodes.length} option(s) retenues</p>
+              {contacts?.department && (
+                <p style={{ margin: 0, color: t.dim }}>Département {contacts.department}</p>
+              )}
+            </div>
+          </Reveal>
+
+          {/* Bouton télécharger */}
+          <Reveal delay={220}>
+            <button
+              data-testid="download-pdf"
+              onClick={handleDownload}
+              disabled={downloading}
+              style={{
+                padding:    '14px 32px',
+                borderRadius: 12,
+                border:     'none',
+                background: t.accent,
+                color:      t.mode === 'dark' ? t.bg : '#fff',
+                fontSize:   15,
+                fontWeight: 700,
+                cursor:     downloading ? 'wait' : 'pointer',
+                fontFamily: 'inherit',
+                marginBottom: 24,
+              }}
+            >
+              {downloading ? 'Génération…' : 'Télécharger la fiche PDF'}
+            </button>
+          </Reveal>
+
+          {/* Erreur PDF */}
+          {pdfError && (
+            <div
+              role="alert"
+              style={{
+                padding:      '14px 20px',
+                borderRadius: 12,
+                background:   `${C.ferrari}08`,
+                border:       `1px solid ${C.ferrari}25`,
+                color:        C.ferrari,
+                fontSize:     14,
+                marginBottom: 24,
+              }}
+            >
+              {pdfError}
+            </div>
+          )}
+
+          {/* Aperçu HTML */}
+          {previewHtml && (
+            <Reveal delay={260}>
+              <iframe
+                data-testid="preview-frame"
+                srcDoc={previewHtml}
+                style={{
+                  width:        '100%',
+                  height:       800,
+                  border:       `1px solid ${t.border}`,
+                  borderRadius: 12,
+                }}
+                title="Aperçu fiche"
+              />
             </Reveal>
+          )}
 
-            {/* ── Récapitulatif + actions ── */}
-            <Reveal delay={300}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-                {/* Récapitulatif */}
-                <div
-                  style={{
-                    padding:      28,
-                    borderRadius: 16,
-                    background:   t.surface,
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                    border:       `1px solid ${t.border}`,
-                  }}
-                >
-                  <MonoLabel style={{ marginBottom: 20 }}>Récapitulatif</MonoLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <LiveField label="Machine" mono>
-                      {machine?.model} {machine?.size}
-                    </LiveField>
-                    <LiveField label="Type" mono>
-                      {machine?.family} {machine?.acoustic === 'L' ? '· Silencieux' : ''}
-                    </LiveField>
-                    <LiveField label="Fluide" mono>{machine?.medium?.replace('_', '/')}</LiveField>
-                    <div style={{ height: 1, background: t.border }} />
-                    <LiveField label="Projet">{project?.name || '—'}</LiveField>
-                    <LiveField label="N°" mono>{project?.number || '—'}</LiveField>
-                    <LiveField label="Client">{client?.name || '—'}</LiveField>
-                    <LiveField label="Dépt." mono>{client?.department || '—'}</LiveField>
-                    {solution && (
-                      <>
-                        <div style={{ height: 1, background: t.border }} />
-                        <LiveField label="Solution">{solution.name}</LiveField>
-                      </>
-                    )}
-                    {contacts?.tci?.name && (
-                      <LiveField label="TCI">{contacts.tci.name}</LiveField>
-                    )}
-                    {contacts?.tcs?.name && (
-                      <LiveField label="TCS">{contacts.tcs.name}</LiveField>
-                    )}
-                    {optionCodes.length > 0 && (
-                      <>
-                        <div style={{ height: 1, background: t.border }} />
-                        <LiveField label="Options" mono>{optionCodes.length} sélectionnées</LiveField>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Barre de progression */}
-                {genState === 'generating' && (
-                  <ProgressBar progress={progress} accent={t.accent} border={t.border} />
-                )}
-
-                {/* Erreur */}
-                {genState === 'error' && error && (
-                  <div
-                    style={{
-                      padding: '16px 20px', borderRadius: 12,
-                      background: `${C.ferrari}08`, border: `1px solid ${C.ferrari}25`,
-                      color: C.ferrari, fontSize: 14,
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-
-                {/* Bouton principal */}
-                {genState !== 'done' && (
-                  <GenerateButton
-                    state={genState}
-                    accent={t.accent}
-                    textColor={t.mode === 'dark' ? t.bg : '#fff'}
-                    onClick={generate}
-                  />
-                )}
-
-                {/* Succès : télécharger */}
-                {genState === 'done' && pdfUrl && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        padding:        '10px 20px',
-                        borderRadius:   10,
-                        background:     `${t.accent}10`,
-                        border:         `1px solid ${t.accent}25`,
-                        color:          t.accent,
-                        fontSize:       13,
-                        textAlign:      'center',
-                        textDecoration: 'none',
-                        fontWeight:     500,
-                      }}
-                    >
-                      Ouvrir la prévisualisation
-                    </a>
-                  </div>
-                )}
-              </div>
-            </Reveal>
-          </div>
         </div>
       </main>
 
       <BottomBar
-        onBack={genState !== 'done' ? () => navigate('/options') : undefined}
-        isLast={genState === 'done'}
+        onBack={() => navigate('/options')}
         onReset={handleReset}
-        onDownload={handleDownload}
         wide
       />
     </PageTransition>
-  )
-}
-
-// ── Aperçu page de garde ───────────────────────────────────────────────────────
-function CoverPreview({
-  model, size, projectName, familyLabel,
-}: {
-  model:       string
-  size:        string
-  projectName: string
-  familyLabel: string
-}) {
-  const { theme: t } = useTheme()
-  const [imgError, setImgError] = useState(false)
-
-  if (!model || !size) {
-    return (
-      <div
-        style={{
-          aspectRatio: '1/1.41', borderRadius: 12,
-          background:  t.surface, border: `1px dashed ${t.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: t.muted, fontSize: 14,
-        }}
-      >
-        Aucun modèle sélectionné
-      </div>
-    )
-  }
-
-  return (
-    <div
-      style={{
-        position:     'relative',
-        aspectRatio:  '1/1.41',
-        borderRadius: 12,
-        overflow:     'hidden',
-        boxShadow:    '0 20px 60px rgba(0,0,0,0.15)',
-      }}
-    >
-      {/* PNG de fond */}
-      {!imgError ? (
-        <img
-          src={coverUrl(model, size)}
-          alt={`Cover ${model} ${size}`}
-          onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-      ) : (
-        /* Fallback si PNG absent */
-        <FallbackCover model={model} size={size} />
-      )}
-
-      {/* Overlay : nom projet + sous-titre machine */}
-      <div
-        style={{
-          position:       'absolute',
-          top:            '22%', left: '50%',
-          transform:      'translateX(-50%)',
-          width:          '75%', textAlign: 'center',
-          /* Rectangle masquant le texte "Projet COURNEUVE" éventuel */
-          background:     'rgba(238, 239, 241, 0.96)',
-          padding:        '10px 8px',
-          borderRadius:   4,
-        }}
-      >
-        <div
-          style={{
-            fontSize:      'clamp(16px, 3.5vw, 28px)',
-            fontWeight:    700,
-            color:         '#2f4a6f',
-            letterSpacing: '-0.02em',
-            lineHeight:    1.1,
-          }}
-        >
-          {projectName ? `Projet ${projectName.toUpperCase()}` : 'Nom du projet'}
-        </div>
-        {familyLabel && (
-          <div
-            style={{
-              fontSize:   'clamp(8px, 1.5vw, 12px)',
-              fontWeight: 700,
-              color:      '#2f4a6f',
-              marginTop:  4,
-            }}
-          >
-            {familyLabel.charAt(0).toUpperCase() + familyLabel.slice(1)}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Fallback si PNG manquant ──────────────────────────────────────────────────
-function FallbackCover({ model, size }: { model: string; size: string }) {
-  return (
-    <div
-      style={{
-        width:      '100%', height: '100%',
-        background: 'linear-gradient(160deg, #eef0f4 0%, #dde0e8 100%)',
-        display:    'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'flex-end',
-        padding:    '0 0 10%',
-      }}
-    >
-      <div
-        style={{
-          fontSize:  'clamp(40px, 12vw, 80px)',
-          fontWeight: 900,
-          color:      '#2f4a6f',
-          letterSpacing: '-0.04em',
-          lineHeight: 1,
-        }}
-      >
-        {model}
-      </div>
-      <div style={{ fontSize: 'clamp(24px, 7vw, 48px)', fontWeight: 700, color: '#00b4a0' }}>
-        {size}
-      </div>
-    </div>
-  )
-}
-
-// ── Barre de progression ──────────────────────────────────────────────────────
-function ProgressBar({ progress, accent, border }: { progress: number; accent: string; border: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-      <div style={{ flex: 1, height: 2, background: border, borderRadius: 2, overflow: 'hidden' }}>
-        <div
-          style={{
-            height:          '100%',
-            background:      `linear-gradient(90deg, ${accent}, ${accent}bb)`,
-            width:           `${progress}%`,
-            transition:      'width 0.15s linear',
-          }}
-        />
-      </div>
-      <div
-        style={{
-          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-          fontSize:   13, color: accent, fontWeight: 600, minWidth: 40, textAlign: 'right',
-        }}
-      >
-        {Math.round(progress)}%
-      </div>
-    </div>
-  )
-}
-
-// ── Bouton générer ────────────────────────────────────────────────────────────
-function GenerateButton({
-  state, accent, textColor, onClick,
-}: {
-  state:     GenState
-  accent:    string
-  textColor: string
-  onClick:   () => void
-}) {
-  const [hov, setHov] = useState(false)
-  const isLoading = state === 'generating'
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={isLoading}
-      onMouseEnter={() => { if (!isLoading) setHov(true) }}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        padding:      '16px 32px', borderRadius: 14, border: 'none',
-        background:   accent, color: textColor,
-        fontSize:     15, fontWeight: 700, cursor: isLoading ? 'wait' : 'pointer',
-        fontFamily:   'inherit',
-        display:      'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        boxShadow:    `0 8px 32px ${accent}30`,
-        transform:    hov ? 'translateY(-2px)' : 'none',
-        transition:   'all 0.2s cubic-bezier(0.22,1,0.36,1)',
-        opacity:      isLoading ? 0.85 : 1,
-      }}
-    >
-      {isLoading ? (
-        <>
-          <div
-            style={{
-              width: 16, height: 16, borderRadius: '50%',
-              border: `2px solid rgba(255,255,255,0.4)`, borderTopColor: '#fff',
-              animation: 'spin 0.7s linear infinite',
-            }}
-          />
-          Génération en cours…
-        </>
-      ) : (
-        <>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6" />
-            <line x1="12" y1="18" x2="12" y2="12" /><line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          {state === 'error' ? 'Réessayer' : 'Générer la fiche PDF'}
-        </>
-      )}
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </button>
   )
 }

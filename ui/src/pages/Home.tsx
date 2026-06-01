@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { useNavigate }                   from 'react-router-dom'
+import { Link, useNavigate }             from 'react-router-dom'
 import { useTheme, C }                   from '../lib/theme'
 import { parseFilename }                 from '../lib/machines'
 import { saveMachine, saveRecord }       from '../lib/sessionContext'
@@ -149,6 +149,27 @@ export default function Home() {
                 Importez une fiche GALLETTI en .docx ou .pdf.<br />
                 INVENIO extrait, restructure et génère votre fiche au design France Air.
               </p>
+            </Reveal>
+
+            {/* CTA principal */}
+            <Reveal delay={240}>
+              <Link
+                to="/import"
+                style={{
+                  display:        'inline-block',
+                  padding:        '16px 40px',
+                  borderRadius:   14,
+                  background:     t.accent,
+                  color:          t.mode === 'dark' ? t.bg : '#fff',
+                  textDecoration: 'none',
+                  fontSize:       16,
+                  fontWeight:     700,
+                  marginBottom:   32,
+                  boxShadow:      `0 8px 32px ${t.accent}30`,
+                }}
+              >
+                Générer ma fiche
+              </Link>
             </Reveal>
 
             {/* Dropzone */}

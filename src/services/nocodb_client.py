@@ -20,7 +20,7 @@ Configuration (.env) :
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -243,7 +243,7 @@ class NoCODBClient:
         for k in to_delete:
             del self._cache[k]
 
-    def __enter__(self) -> "NoCODBClient":
+    def __enter__(self) -> NoCODBClient:
         return self
 
     def __exit__(self, *_: Any) -> None:

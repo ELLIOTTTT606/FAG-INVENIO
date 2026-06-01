@@ -22,11 +22,9 @@ Ordre d'exécution :
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -164,7 +162,7 @@ def main() -> None:
     # Vérifications
     missing_nocodb = [t["name"] for t in TABLES if not t["nocodb_id"]]
     if missing_nocodb:
-        print(f"\n⚠ Tables NocoDB non configurées dans .env :")
+        print("\n⚠ Tables NocoDB non configurées dans .env :")
         for name in missing_nocodb:
             print(f"   - {name}")
         print("\n→ Créez ces tables dans NocoDB (http://localhost:8080 via SSH tunnel)")

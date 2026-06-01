@@ -11,11 +11,13 @@ Ce script :
   4. Applique le correctif dans Projet.tsx
   5. Vérifie le résultat
 """
-import base64, shutil, sys, os
+import base64
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
-OK = []; FAIL = []
+OK = []
+FAIL = []
 
 def w(rel, b64):
     p = ROOT / rel

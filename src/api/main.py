@@ -13,6 +13,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
+from src.api._static import mount_frontend
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
 from src.services.contacts_repo import (
@@ -297,5 +298,4 @@ def options_for_machine(
     }
 
 
-from src.api._static import mount_frontend  # noqa: E402
 mount_frontend(app)

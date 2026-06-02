@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 import tempfile
+import traceback as _traceback
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, UploadFile
 from fastapi import Path as PathParam
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.api._static import mount_frontend
@@ -104,7 +105,15 @@ def _parse_upload(file: UploadFile, allowed_suffix: str) -> dict[str, Any]:
     summary="Parse a GALLETTI DOCX file and return canonical JSON",
 )
 async def parse_docx_endpoint(file: UploadFile) -> dict[str, Any]:
-    return _parse_upload(file, ".docx")
+    try:
+        return _parse_upload(file, ".docx")
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": _traceback.format_exc()},
+        )
 
 
 @app.post(
@@ -112,7 +121,15 @@ async def parse_docx_endpoint(file: UploadFile) -> dict[str, Any]:
     summary="Parse a GALLETTI native PDF and return canonical JSON",
 )
 async def parse_pdf_endpoint(file: UploadFile) -> dict[str, Any]:
-    return _parse_upload(file, ".pdf")
+    try:
+        return _parse_upload(file, ".pdf")
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": _traceback.format_exc()},
+        )
 
 
 class NewClientPayload(BaseModel):

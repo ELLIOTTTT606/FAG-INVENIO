@@ -16,6 +16,7 @@ from docx.document import Document as DocxDocument
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+from lxml import etree
 
 from src.parser._common import (
     DESIGNATION_RE,
@@ -70,7 +71,12 @@ def parse_docx(
         decoder_path = Path(__file__).parent / "designation_decoder.csv"
     rules_by_section = index_rules(load_mapping(Path(mapping_path)))
 
-    document = Document(str(path))
+    try:
+        document = Document(str(path))
+    except etree.XMLSyntaxError as exc:
+        raise ValueError(
+            f"Le fichier DOCX contient des données XML invalides et ne peut pas être lu : {exc}"
+        ) from exc
     data = empty_payload(path.name, fmt="docx")
     warnings: list[dict[str, str]] = data["warnings"]
 

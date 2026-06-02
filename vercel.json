@@ -1,14 +1,13 @@
 {
-  "buildCommand": "cd ui && npm install && npm run build",
-  "outputDirectory": "ui/dist",
-  "rewrites": [
-    { "source": "/health", "destination": "/api/index" },
-    { "source": "/admin/:path*", "destination": "/api/index" },
-    { "source": "/contacts/:path*", "destination": "/api/index" },
-    { "source": "/options", "destination": "/api/index" },
-    { "source": "/clients/:path*", "destination": "/api/index" },
-    { "source": "/parse/:path*", "destination": "/api/index" },
-    { "source": "/generate/:path*", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": { "maxLambdaSize": "50mb" }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/index.py" },
+    { "src": "/(.*)", "dest": "api/index.py" }
   ]
 }

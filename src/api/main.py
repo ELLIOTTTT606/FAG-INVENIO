@@ -295,3 +295,7 @@ def options_for_machine(
         "size": size,
         "options": [opt.to_dict() for opt in options],
     }
+
+
+from src.api._static import mount_frontend  # noqa: E402
+mount_frontend(app)

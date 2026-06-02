@@ -1,182 +1,408 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import type { MachineContext } from '../api/options'
-import { fetchOptions, groupByCategory, type OptionsResponse } from '../api/options'
-import { OptionsAccordion } from '../components/OptionsAccordion'
-import { readImport, readSelectedOptions, rememberSelectedOptions } from '../lib/sessionContext'
+import { useEffect, useState, useMemo }    from 'react'
+import { Link, useNavigate }               from 'react-router-dom'
+import { useTheme, C }                     from '../lib/theme'
+import { loadMachine, loadProject, loadClient, loadOptions, saveOptions, readImport } from '../lib/sessionContext'
+import { Reveal, PageTransition, MonoLabel, Spinner } from '../components/ui/atoms'
+import { BottomBar }                       from '../components/layout/Navigation'
 
-type Status = 'idle' | 'loading' | 'ready' | 'error'
-
-function parseContext(params: URLSearchParams): MachineContext | null {
-  const model = params.get('model') ?? ''
-  const type = params.get('type') ?? ''
-  const size = params.get('size') ?? ''
-  if (!model || !type || !size) return null
-  return { model, type, size }
+// ── Types API options ─────────────────────────────────────────────────────────
+interface Option {
+  code:        string
+  label:       string
+  category:    string
+  description?: string
+  tips?:        string
+  price?:       number | null
 }
 
+interface OptionsResponse {
+  model:   string
+  type:    string
+  size:    string
+  options: Option[]
+}
+
+async function fetchOptions(model: string, type: string, size: string): Promise<OptionsResponse> {
+  const params = new URLSearchParams({ model, type, size })
+  const r = await fetch(`${import.meta.env.VITE_API_URL || ''}/options?${params}`)
+  if (!r.ok) throw new Error(`Options API error ${r.status}`)
+  return r.json()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Options() {
-  const [params] = useSearchParams()
-  const navigate = useNavigate()
+  const { theme: t }  = useTheme()
+  const navigate      = useNavigate()
+  const machine       = loadMachine()
+  const importCtx     = readImport()
+  const project       = loadProject()
+  const client        = loadClient()
 
-  const queryContext = parseContext(params)
-  const sessionContext = useMemo(() => readImport(), [])
+  // Use machine from saveMachine(), fallback to imported record machine info
+  const machineModel  = machine?.model  || importCtx?.machine.model  || ''
+  const machineType   = machine          ? `${machine.family === 'PAC' ? 'H' : 'C'}${machine.acoustic ?? 'S'}` : (importCtx?.machine.type ?? '')
+  const machineSize   = (machine?.size   || importCtx?.machine.size  || '').padStart(3, '0')
 
-  const machine: MachineContext | null = queryContext ?? sessionContext?.machine ?? null
-  const preselected = useMemo(
-    () => new Set(sessionContext?.preselectedOptionCodes ?? []),
-    [sessionContext],
-  )
+  const [options,  setOptions]  = useState<Option[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set(loadOptions()))
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const [response, setResponse] = useState<OptionsResponse | null>(null)
-  const [status, setStatus] = useState<Status>('idle')
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(readSelectedOptions()))
-
+  // Charger le catalogue depuis Baserow
   useEffect(() => {
-    if (!machine) {
-      setStatus('idle')
-      return
+    if (!machineModel) { setLoading(false); return }
+    fetchOptions(machineModel, machineType, machineSize)
+      .then(data => {
+        const opts = data.options ?? []
+        setOptions(opts)
+        const cats = [...new Set(opts.map((o: Option) => o.category))]
+        setExpanded(new Set(cats))
+      })
+      .catch(() => setError('Impossible de charger les options depuis Baserow.'))
+      .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Grouper par catégorie
+  const grouped = useMemo(() => {
+    const map = new Map<string, Option[]>()
+    for (const opt of options) {
+      if (!map.has(opt.category)) map.set(opt.category, [])
+      map.get(opt.category)!.push(opt)
     }
-    const controller = new AbortController()
-    setStatus('loading')
-    fetchOptions(machine, controller.signal)
-      .then((next) => {
-        if (controller.signal.aborted) return
-        setResponse(next)
-        setStatus('ready')
-        setSelected((prev) => {
-          // Keep existing user choices; pre-check codes coming from the parsed
-          // designation only the first time we load this machine.
-          if (prev.size > 0) return prev
-          const initial = new Set<string>()
-          for (const opt of next.options) {
-            if (preselected.has(opt.code)) initial.add(opt.code)
-          }
-          return initial
-        })
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        // eslint-disable-next-line no-console
-        console.error(err)
-        setStatus('error')
-      })
-    return () => controller.abort()
-  }, [machine, preselected])
+    return map
+  }, [options])
 
-  const grouped = useMemo(
-    () => (response ? Array.from(groupByCategory(response.options).entries()) : []),
-    [response],
-  )
-  const totalSelected = selected.size
-  const totalOptions = response?.options.length ?? 0
-
-  useEffect(() => {
-    rememberSelectedOptions(Array.from(selected))
-  }, [selected])
-
-  const toggle = (code: string) => {
-    setSelected((prev) => {
+  const toggleOption = (code: string) => {
+    setSelected(prev => {
       const next = new Set(prev)
-      if (next.has(code)) next.delete(code)
-      else next.add(code)
+      if (next.has(code)) { next.delete(code) } else { next.add(code) }
       return next
     })
   }
 
-  if (!machine) {
-    return (
-      <section className="space-y-6">
-        <p className="text-sm uppercase tracking-widest text-accent">Étape 3 · Options</p>
-        <h1 className="text-3xl font-semibold md:text-4xl">Aucune machine sélectionnée</h1>
-        <p className="max-w-2xl text-ink-muted">
-          Importez d'abord une fiche GALLETTI pour choisir ses options. Les
-          options pré-cochées seront déduites de la chaîne de désignation
-          extraite.
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/import')}
-          className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
-        >
-          Aller à l'import
-        </button>
-      </section>
-    )
+  const toggleCategory = (cat: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(cat)) { next.delete(cat) } else { next.add(cat) }
+      return next
+    })
   }
 
+  const handleNext = () => {
+    saveOptions([...selected])
+    navigate('/generate')
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <section className="space-y-8">
-      <header>
-        <p className="text-sm uppercase tracking-widest text-accent">Étape 3 · Options</p>
-        <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
-          Sélectionnez les options pour {machine.model} · {machine.size} · {machine.type}
-        </h1>
-        <p className="mt-3 max-w-2xl text-ink-muted">
-          Catalogue filtré par modèle, taille et type acoustique. Les options
-          détectées dans la désignation sont pré-cochées.
-        </p>
-      </header>
+    <PageTransition pgKey="options">
+      <main style={{ minHeight: '100vh', padding: '120px 48px 140px' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
 
-      <div
-        className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-ink-muted/15 bg-surface-light/95 px-5 py-3 backdrop-blur"
-        data-testid="options-counter"
-      >
-        <p className="text-sm">
-          <strong className="text-accent">{totalSelected}</strong>
-          <span className="text-ink-muted"> / {totalOptions} option(s) sélectionnée(s)</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => setSelected(new Set())}
-          disabled={totalSelected === 0}
-          className="rounded-full border border-ink-muted/30 px-4 py-1.5 text-xs hover:border-accent disabled:opacity-50"
-        >
-          Tout désélectionner
-        </button>
-      </div>
-
-      {status === 'loading' ? (
-        <p role="status" className="text-sm text-ink-muted">
-          Chargement du catalogue…
-        </p>
-      ) : null}
-      {status === 'error' ? (
-        <p role="alert" className="text-sm text-danger">
-          Le catalogue d'options n'a pas pu être chargé.
-        </p>
-      ) : null}
-
-      {status === 'ready' && grouped.length > 0 ? (
-        <div className="flex justify-end">
-          <Link
-            to="/generate"
-            className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
-          >
-            Continuer vers la génération →
-          </Link>
-        </div>
-      ) : null}
-
-      {status === 'ready' ? (
-        grouped.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-ink-muted/30 p-8 text-center text-sm italic text-ink-muted">
-            Aucune option disponible pour cette configuration.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {grouped.map(([category, options]) => (
-              <OptionsAccordion
-                key={category}
-                category={category}
-                options={options}
-                selected={selected}
-                onToggle={toggle}
-              />
-            ))}
+          {/* ── Lien de navigation vers génération ── */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+            <Link
+              to="/generate"
+              onClick={() => saveOptions([...selected])}
+              style={{
+                padding:        '10px 24px',
+                borderRadius:   10,
+                background:     '#2f4a6f',
+                color:          '#fff',
+                textDecoration: 'none',
+                fontWeight:     600,
+                fontSize:       14,
+              }}
+            >
+              Continuer vers la génération
+            </Link>
           </div>
-        )
-      ) : null}
-    </section>
+
+          {/* ── En-tête ── */}
+          <Reveal delay={50}>
+            <MonoLabel style={{ marginBottom: 24 }}>
+              <span style={{ width: 24, height: 1, background: t.muted }} />
+              Étape 04 · Options &amp; accessoires
+            </MonoLabel>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 20, flexWrap: 'wrap', marginBottom: 8 }}>
+              <h1
+                style={{
+                  fontSize:      'clamp(36px, 5vw, 64px)',
+                  fontWeight:    700,
+                  letterSpacing: '-0.03em',
+                  lineHeight:    1,
+                  color:         t.text,
+                  margin:        0,
+                }}
+              >
+                {project?.name || 'Options'}
+              </h1>
+              {project?.number && (
+                <span
+                  style={{
+                    fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+                    fontSize:      14, color: t.accent, fontWeight: 600,
+                  }}
+                >
+                  {project.number}
+                </span>
+              )}
+            </div>
+          </Reveal>
+
+          <Reveal delay={200}>
+            <p style={{ fontSize: 15, color: t.dim, marginBottom: 48 }}>
+              {machine
+                ? `${machine.model} ${machine.size} — ${machine.family ?? ''} · ${client?.name ?? ''}`
+                : ''}
+            </p>
+          </Reveal>
+
+          {/* ── Compteur options sélectionnées ── */}
+          <Reveal delay={0}>
+            <div
+              style={{
+                display:      'flex',
+                alignItems:   'center',
+                gap:          12,
+                padding:      '12px 20px',
+                borderRadius: 12,
+                background:   `${t.accent}10`,
+                border:       `1px solid ${t.accent}25`,
+                marginBottom: 32,
+                fontSize:     14,
+                color:        t.accent,
+                fontWeight:   600,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {selected.size} option(s) sélectionnée(s)
+              {selected.size > 0 && (
+                <button
+                  onClick={() => setSelected(new Set())}
+                  style={{
+                    marginLeft: 'auto', background: 'none', border: 'none',
+                    color: t.muted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Tout désélectionner
+                </button>
+              )}
+            </div>
+          </Reveal>
+
+          {/* ── Catalogue ── */}
+          {loading ? (
+            <div style={{ padding: '60px 0' }}>
+              <Spinner label="Chargement du catalogue…" />
+            </div>
+          ) : error ? (
+            <Reveal delay={0}>
+              <div
+                style={{
+                  padding: '20px 24px', borderRadius: 12,
+                  background: `${C.ferrari}08`, border: `1px solid ${C.ferrari}25`,
+                  color: C.ferrari, fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            </Reveal>
+          ) : options.length === 0 ? (
+            <Reveal delay={0}>
+              <div style={{ padding: '40px 0', color: t.muted, textAlign: 'center' }}>
+                Aucune option disponible pour ce modèle dans Baserow.
+              </div>
+            </Reveal>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[...grouped.entries()].map(([category, opts], i) => (
+                <Reveal key={category} delay={200 + i * 60}>
+                  <CategoryAccordion
+                    category={category}
+                    options={opts}
+                    selected={selected}
+                    expanded={expanded.has(category)}
+                    onToggleExpand={() => toggleCategory(category)}
+                    onToggleOption={toggleOption}
+                  />
+                </Reveal>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <BottomBar
+        onBack={() => navigate('/contacts')}
+        onNext={handleNext}
+        canNext
+        nextLabel="Générer la fiche"
+      />
+    </PageTransition>
+  )
+}
+
+// ── Accordéon par catégorie ───────────────────────────────────────────────────
+function CategoryAccordion({
+  category, options, selected, expanded, onToggleExpand, onToggleOption,
+}: {
+  category:        string
+  options:         Option[]
+  selected:        Set<string>
+  expanded:        boolean
+  onToggleExpand:  () => void
+  onToggleOption:  (code: string) => void
+}) {
+  const { theme: t } = useTheme()
+  const checkedCount = options.filter(o => selected.has(o.code)).length
+  const [hoveredOption, setHoveredOption] = useState<string | null>(null)
+
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        border:       `1px solid ${expanded ? t.borderStrong : t.border}`,
+        overflow:     'hidden',
+        background:   t.surface,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        transition:   'border-color 0.2s',
+      }}
+    >
+      {/* Header catégorie */}
+      <button
+        onClick={onToggleExpand}
+        style={{
+          width:          '100%',
+          padding:        '20px 24px',
+          background:     'none',
+          border:         'none',
+          cursor:         'pointer',
+          display:        'flex',
+          alignItems:     'center',
+          gap:            16,
+          fontFamily:     'inherit',
+          textAlign:      'left',
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: t.text }}>{category}</div>
+          <div
+            style={{
+              fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+              fontSize:      10, color: t.muted,
+              letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 4,
+            }}
+          >
+            {options.length} option{options.length > 1 ? 's' : ''}
+          </div>
+        </div>
+        {checkedCount > 0 && (
+          <span
+            style={{
+              padding:      '4px 10px', borderRadius: 20,
+              background:   `${t.accent}15`, color: t.accent,
+              fontSize:     12, fontWeight: 700,
+              fontFamily:   "'JetBrains Mono', ui-monospace, monospace",
+            }}
+          >
+            {checkedCount} ✓
+          </span>
+        )}
+        <svg
+          width="16" height="16" viewBox="0 0 24 24"
+          fill="none" stroke={t.muted} strokeWidth="1.8"
+          style={{ transition: 'transform 0.3s', transform: expanded ? 'rotate(180deg)' : 'none' }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Options */}
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${t.border}` }}>
+          {options.map((opt, i) => {
+            const isChecked  = selected.has(opt.code)
+            const isHovered  = hoveredOption === opt.code
+            return (
+              <div
+                key={opt.code}
+                onClick={() => onToggleOption(opt.code)}
+                onMouseEnter={() => setHoveredOption(opt.code)}
+                onMouseLeave={() => setHoveredOption(null)}
+                style={{
+                  padding:        '16px 24px',
+                  borderBottom:   i < options.length - 1 ? `1px solid ${t.border}` : 'none',
+                  cursor:         'pointer',
+                  display:        'flex',
+                  alignItems:     'flex-start',
+                  gap:            16,
+                  background:     isChecked
+                    ? `${t.accent}07`
+                    : isHovered
+                      ? `${t.borderStrong}30`
+                      : 'transparent',
+                  transition:     'background 0.15s',
+                }}
+              >
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => onToggleOption(opt.code)}
+                  onClick={e => e.stopPropagation()}
+                  style={{ width: 20, height: 20, flexShrink: 0, marginTop: 2, cursor: 'pointer', accentColor: t.accent }}
+                />
+
+                {/* Contenu */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: t.text }}>{opt.label}</span>
+                    <span
+                      style={{
+                        fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+                        fontSize:      10, color: t.muted, letterSpacing: '0.1em',
+                      }}
+                    >
+                      {opt.code}
+                    </span>
+                    {opt.price != null && (
+                      <span style={{ marginLeft: 'auto', fontSize: 13, color: t.dim }}>
+                        {opt.price.toLocaleString('fr-FR')} €
+                      </span>
+                    )}
+                  </div>
+                  {opt.description && (
+                    <div style={{ fontSize: 13, color: t.dim, marginTop: 6, lineHeight: 1.5 }}>
+                      {opt.description}
+                    </div>
+                  )}
+                  {opt.tips && isHovered && (
+                    <div
+                      style={{
+                        marginTop:    8, padding: '8px 12px',
+                        borderRadius: 8, background: `${t.accent}10`,
+                        border:       `1px solid ${t.accent}20`,
+                        fontSize:     12, color: t.accent, lineHeight: 1.5,
+                      }}
+                    >
+                      💡 {opt.tips}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

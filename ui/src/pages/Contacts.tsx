@@ -1,171 +1,412 @@
-import { useEffect, useState } from 'react'
-import type { Client, DepartmentContacts } from '../api/contacts'
-import { fetchDepartmentContacts } from '../api/contacts'
-import { ClientSearch } from '../components/ClientSearch'
-import { ContactCard } from '../components/ContactCard'
-import { DepartmentPicker } from '../components/DepartmentPicker'
-import { FranceMap } from '../components/FranceMap'
-import { NewClientModal } from '../components/NewClientModal'
-import { findDepartment } from '../data/departments'
-import { rememberContacts } from '../lib/sessionContext'
+import { useEffect, useState }             from 'react'
+import { useNavigate }                     from 'react-router-dom'
+import { useTheme, C }                     from '../lib/theme'
+import {
+  loadMachine, loadProject, loadClient, loadSolution,
+  saveContacts,
+} from '../lib/sessionContext'
+import type { DepartmentContacts, Client } from '../api/contacts'
+import { fetchDepartmentContacts }         from '../api/contacts'
+import {
+  Reveal, PageTransition, Avatar, Spinner, MonoLabel,
+} from '../components/ui/atoms'
+import { BottomBar }                       from '../components/layout/Navigation'
+import { getMediumLabel }  from '../lib/machines'
+import { FranceMap }       from '../components/FranceMap'
+import { NewClientModal }  from '../components/NewClientModal'
+import { findDepartment }  from '../data/departments'
 
-type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
-
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Contacts() {
-  const [department, setDepartment] = useState<string | null>(null)
-  const [client, setClient] = useState<Client | null>(null)
-  const [contacts, setContacts] = useState<DepartmentContacts | null>(null)
-  const [status, setStatus] = useState<LoadStatus>('idle')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Client | null>(null)
+  const { theme: t }  = useTheme()
+  const navigate      = useNavigate()
+  const machine       = loadMachine()
+  const project       = loadProject()
+  const client        = loadClient()
+  const solution      = loadSolution()
 
+  const [contacts,    setContacts]    = useState<DepartmentContacts | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [dept,        setDept]        = useState(client?.department ?? '')
+  const [clientName,  setClientName]  = useState(client?.name ?? '')
+  const [modalOpen,   setModalOpen]   = useState(false)
+
+  // Charger les contacts depuis Baserow
   useEffect(() => {
-    if (!department) {
-      setContacts(null)
-      setStatus('idle')
-      return
-    }
-    const controller = new AbortController()
-    setStatus('loading')
-    fetchDepartmentContacts(department, controller.signal)
-      .then((next) => {
-        if (controller.signal.aborted) return
-        setContacts(next)
-        rememberContacts(next)
-        setStatus('ready')
+    if (!dept) { setLoading(false); return }
+    const ctrl = new AbortController()
+    setLoading(true)
+    setError(null)
+    fetchDepartmentContacts(dept, ctrl.signal)
+      .then(data => {
+        setContacts(data)
+        saveContacts(data)
       })
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        // eslint-disable-next-line no-console
-        console.error(err)
-        setStatus('error')
+      .catch(err => {
+        if (err.name !== 'AbortError') setError('Impossible de charger les contacts.')
       })
-    return () => controller.abort()
-  }, [department])
+      .finally(() => setLoading(false))
+    return () => ctrl.abort()
+  }, [dept])
 
-  const handleClient = (selected: Client) => {
-    setClient(selected)
-    setDepartment(selected.department)
+  const canNext = !loading && (contacts?.tci != null || contacts?.tcs != null)
+
+  const handleNext = () => {
+    navigate('/options')
   }
 
-  const openCreate = () => {
-    setEditing(null)
-    setModalOpen(true)
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <PageTransition pgKey="contacts">
+      <main style={{ minHeight: '100vh', padding: '120px 48px 140px' }}>
+        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
 
-  const openEdit = (target: Client) => {
-    if (target.id == null) return
-    setEditing(target)
-    setModalOpen(true)
-  }
+          {/* ── En-tête ── */}
+          <Reveal delay={50}>
+            <MonoLabel style={{ marginBottom: 24 }}>
+              <span style={{ width: 24, height: 1, background: t.muted }} />
+              Étape 03 · Contacts France Air
+            </MonoLabel>
+          </Reveal>
 
-  const handleSaved = (saved: Client) => {
-    handleClient(saved)
-    setEditing(null)
-  }
+          <Reveal delay={120}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 24, flexWrap: 'wrap', marginBottom: 12 }}>
+              <h1
+                style={{
+                  fontSize:      'clamp(40px, 6vw, 80px)',
+                  fontWeight:    700,
+                  letterSpacing: '-0.035em',
+                  lineHeight:    1,
+                  color:         t.text,
+                  margin:        0,
+                }}
+              >
+                {clientName || 'Client'}
+              </h1>
+              {dept && (
+                <div
+                  style={{
+                    fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+                    fontSize:      18, fontWeight: 600,
+                    color:         t.accent, letterSpacing: '0.05em',
+                  }}
+                >
+                  · DEPT {dept}
+                </div>
+              )}
+            </div>
+          </Reveal>
 
-  const departmentLabel = department
-    ? `${department} · ${findDepartment(department)?.name ?? 'Département'}`
-    : 'Sélectionnez un département'
+          <Reveal delay={200}>
+            <div
+              style={{
+                fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+                fontSize:      14, color: t.dim,
+                letterSpacing: '0.03em', marginBottom: 60,
+              }}
+            >
+              {machine
+                ? `${machine.model} ${machine.size} — ${machine.family ?? ''} ${getMediumLabel(machine.medium)}`
+                : '—'}
+              {project?.name ? ` · Projet ${project.name}` : ''}
+            </div>
+          </Reveal>
+
+          {/* ── Carte France ── */}
+          <Reveal delay={240}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32, flexWrap: 'wrap', marginBottom: 40 }}>
+              <div style={{ flex: '0 0 auto' }}>
+                <FranceMap selected={dept} onSelect={setDept} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 }}>
+                <button
+                  data-testid="open-new-client"
+                  onClick={() => setModalOpen(true)}
+                  style={{
+                    padding:      '10px 20px',
+                    borderRadius: 10,
+                    border:       `1px solid ${t.border}`,
+                    background:   t.surface,
+                    color:        t.text,
+                    fontSize:     13,
+                    fontWeight:   600,
+                    cursor:       'pointer',
+                    fontFamily:   'inherit',
+                  }}
+                >
+                  + Nouveau client
+                </button>
+              </div>
+            </div>
+          </Reveal>
+
+          <NewClientModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onSaved={(c: Client) => { setDept(c.department); setClientName(c.client_name) }}
+          />
+
+          {/* ── Heading département ── */}
+          {dept && (
+            <Reveal delay={250}>
+              <h2
+                style={{
+                  fontSize: 22, fontWeight: 700, color: t.text,
+                  marginBottom: 24,
+                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                }}
+              >
+                {dept} · {findDepartment(dept)?.name ?? dept}
+              </h2>
+            </Reveal>
+          )}
+
+          {/* ── Contenu ── */}
+          {loading ? (
+            <div style={{ padding: '60px 0' }}>
+              <Spinner label={`Chargement des contacts · Dépt. ${dept}`} />
+            </div>
+          ) : error ? (
+            <ErrorBanner message={error} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+
+              {/* Contact Solution (si présent en session) */}
+              {solution && (
+                <Reveal delay={280}>
+                  <SolutionCard contact={solution} />
+                </Reveal>
+              )}
+
+              {/* TCI + TCS */}
+              <div
+                style={{
+                  display:             'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+                  gap:                 20,
+                }}
+              >
+                {contacts?.tci && (
+                  <Reveal delay={360}>
+                    <ContactCard contact={contacts.tci} role="TCI" dept={dept} />
+                  </Reveal>
+                )}
+                {contacts?.tcs && (
+                  <Reveal delay={460}>
+                    <ContactCard contact={contacts.tcs} role="TCS" dept={dept} />
+                  </Reveal>
+                )}
+                {contacts?.solution && !solution && (
+                  <Reveal delay={560}>
+                    <SolutionCard contact={contacts.solution} />
+                  </Reveal>
+                )}
+              </div>
+
+              {/* Aucun contact trouvé */}
+              {!contacts?.tci && !contacts?.tcs && (
+                <Reveal delay={280}>
+                  <div
+                    style={{
+                      padding:      32,
+                      borderRadius: 16,
+                      background:   `${C.ferrari}08`,
+                      border:       `1px solid ${C.ferrari}25`,
+                      color:        C.ferrari,
+                      fontSize:     15,
+                    }}
+                  >
+                    Aucun contact TCI/TCS trouvé pour le département {dept}.
+                    Vérifiez les données dans Baserow → table « Contacts FORCE DE VENTE ».
+                  </div>
+                </Reveal>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <BottomBar
+        onBack={() => navigate('/projet')}
+        onNext={handleNext}
+        canNext={canNext}
+        nextLabel="Continuer"
+        wide
+      />
+    </PageTransition>
+  )
+}
+
+// ── Carte contact TCI / TCS ────────────────────────────────────────────────────
+interface ContactInfo {
+  name?:  string | null
+  email?: string | null
+  phone?: string | null
+}
+
+function ContactCard({ contact, role, dept }: { contact: ContactInfo; role: string; dept: string }) {
+  const { theme: t } = useTheme()
+  const [hov, setHov] = useState(false)
 
   return (
-    <section className="space-y-10">
-      <div>
-        <p className="text-sm uppercase tracking-widest text-accent">Étape 2 · Contacts</p>
-        <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
-          Choisissez le client et les contacts France Air
-        </h1>
-        <p className="mt-3 max-w-2xl text-ink-muted">
-          Recherchez un client existant ou sélectionnez un département. INVENIO
-          renseigne automatiquement le TCI, le TCS et le contact Solution Habitat
-          correspondants.
-        </p>
-      </div>
-
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr),360px]">
-        <div className="space-y-8">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-full border border-accent/40 px-4 py-2 text-xs font-medium text-accent transition hover:bg-accent-subtle/40"
-              data-testid="open-new-client"
-            >
-              + Nouveau client
-            </button>
-          </div>
-
-          <ClientSearch onSelect={handleClient} onEdit={openEdit} />
-
-          {client ? (
-            <div className="flex items-start justify-between gap-3 rounded-2xl border border-accent/30 bg-accent-subtle/30 p-4 text-sm">
-              <div>
-                <p className="font-medium">{client.client_name}</p>
-                <p className="text-ink-muted">
-                  <code>{client.client_code}</code> · {client.postal_code} · département{' '}
-                  {client.department}
-                </p>
-              </div>
-              {client.id != null ? (
-                <button
-                  type="button"
-                  onClick={() => openEdit(client)}
-                  className="rounded-full border border-accent/30 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent-subtle"
-                  data-testid="edit-selected-client"
-                >
-                  Modifier
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          <FranceMap selected={department} onSelect={setDepartment} />
-
-          <DepartmentPicker selected={department} onSelect={setDepartment} />
-        </div>
-
-        <aside className="space-y-4">
-          <header>
-            <h2 className="text-lg font-semibold">{departmentLabel}</h2>
-            <p className="text-xs text-ink-muted">
-              Contacts France Air rattachés au département.
-            </p>
-          </header>
-
-          {status === 'loading' ? (
-            <p role="status" className="text-sm text-ink-muted">
-              Chargement des contacts…
-            </p>
-          ) : null}
-          {status === 'error' ? (
-            <p role="alert" className="text-sm text-danger">
-              Impossible de charger les contacts.
-            </p>
-          ) : null}
-
-          {contacts ? (
-            <div className="space-y-4">
-              <ContactCard role="TCI" contact={contacts.tci} />
-              <ContactCard role="TCS" contact={contacts.tcs} />
-              <ContactCard role="Solution Habitat" contact={contacts.solution} />
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-dashed border-ink-muted/30 p-6 text-sm italic text-ink-muted">
-              Aucun département sélectionné.
-            </p>
-          )}
-        </aside>
-      </div>
-
-      <NewClientModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        padding:      '28px 32px',
+        borderRadius: 16,
+        background:   t.surface,
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border:       `1px solid ${hov ? t.accent : t.border}`,
+        transition:   'all 0.3s cubic-bezier(0.22,1,0.36,1)',
+        transform:    hov ? 'translateY(-2px)' : 'none',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display:       'flex',
+          justifyContent:'space-between',
+          alignItems:    'center',
+          marginBottom:  20,
+          paddingBottom: 16,
+          borderBottom:  `1px solid ${t.border}`,
         }}
-        onSaved={handleSaved}
-        initial={editing}
-      />
-    </section>
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Avatar name={contact.name ?? '?'} size={44} />
+          <div>
+            <h3
+              style={{
+                fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+                fontSize:      10, letterSpacing: '0.15em',
+                color:         t.muted, textTransform: 'uppercase', marginBottom: 4,
+                fontWeight:    600, margin: '0 0 4px',
+              }}
+            >
+              {role}
+            </h3>
+            <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>
+              {contact.name ?? '—'}
+            </div>
+          </div>
+        </div>
+        {dept && (
+          <span
+            style={{
+              fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+              fontSize:      13, fontWeight: 600,
+              color:         t.accent, letterSpacing: '0.05em',
+            }}
+          >
+            {dept}
+          </span>
+        )}
+      </div>
+
+      {/* Coordonnées */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {contact.phone && <ContactLine icon="phone" value={contact.phone} />}
+        {contact.email && <ContactLine icon="email" value={contact.email} />}
+      </div>
+    </div>
+  )
+}
+
+// ── Contact Solution ──────────────────────────────────────────────────────────
+function SolutionCard({ contact }: { contact: ContactInfo }) {
+  const { theme: t } = useTheme()
+
+  return (
+    <div
+      style={{
+        padding:         '24px 32px',
+        borderRadius:    16,
+        background:      `${t.accent}06`,
+        border:          `1px solid ${t.accent}20`,
+        display:         'flex',
+        alignItems:      'center',
+        gap:             20,
+      }}
+    >
+      <Avatar name={contact.name ?? '?'} size={52} />
+      <div style={{ flex: 1 }}>
+        <h3
+          style={{
+            fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+            fontSize:      10, letterSpacing: '0.15em',
+            color:         t.muted, textTransform: 'uppercase', marginBottom: 4,
+            fontWeight:    600, margin: '0 0 4px',
+          }}
+        >
+          Solution Habitat
+        </h3>
+        <div style={{ fontSize: 20, fontWeight: 700, color: t.text }}>{contact.name}</div>
+        <div
+          style={{
+            fontFamily:    "'JetBrains Mono', ui-monospace, monospace",
+            fontSize:      12, color: t.muted, marginTop: 4,
+          }}
+        >
+          {contact.email}
+        </div>
+      </div>
+      {contact.phone && (
+        <a
+          href={`tel:${contact.phone}`}
+          style={{
+            padding:      '10px 18px', borderRadius: 10,
+            background:   t.surface, border: `1px solid ${t.border}`,
+            color:        t.text, fontSize: 13, fontWeight: 600,
+            textDecoration: 'none',
+            fontFamily:   "'JetBrains Mono', ui-monospace, monospace",
+          }}
+        >
+          {contact.phone}
+        </a>
+      )}
+    </div>
+  )
+}
+
+// ── Ligne de coordonnée ───────────────────────────────────────────────────────
+function ContactLine({ icon, value }: { icon: 'phone' | 'email'; value: string }) {
+  const { theme: t } = useTheme()
+  const href = icon === 'phone' ? `tel:${value}` : `mailto:${value}`
+
+  return (
+    <a
+      href={href}
+      style={{
+        display:    'flex', alignItems: 'center', gap: 12,
+        color:      t.dim, textDecoration: 'none',
+        fontSize:   14, transition: 'color 0.2s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = t.text }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = t.dim }}
+    >
+      {icon === 'phone'
+        ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.68A2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92v2z" transform="scale(0.9) translate(1,1)"/></svg>
+        : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      }
+      {value}
+    </a>
+  )
+}
+
+// ── Bannière d'erreur ─────────────────────────────────────────────────────────
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        padding: '20px 24px', borderRadius: 12,
+        background: `${C.ferrari}08`, border: `1px solid ${C.ferrari}25`,
+        color: C.ferrari, fontSize: 14,
+      }}
+    >
+      {message}
+    </div>
   )
 }

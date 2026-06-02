@@ -1,64 +1,71 @@
-import { Link, Route, Routes } from 'react-router-dom'
-import { BaserowBadge } from './components/BaserowBadge'
+import { useCallback } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { ThemeProvider, useTheme } from './lib/theme'
+import { clearSession } from './lib/sessionContext'
+import { AnimatedBackground } from './components/layout/AnimatedBackground'
+import { TopBar } from './components/layout/Navigation'
+import Home     from './pages/Home'
+import Import   from './pages/Import'
+import Machine  from './pages/Machine'
+import Projet   from './pages/Projet'
 import Contacts from './pages/Contacts'
+import Options  from './pages/Options'
 import Generate from './pages/Generate'
-import Home from './pages/Home'
-import Import from './pages/Import'
-import Options from './pages/Options'
+
+function AppShell() {
+  const { theme: t } = useTheme()
+  const navigate     = useNavigate()
+  const location     = useLocation()
+
+  const handleHome = useCallback(() => {
+    clearSession()
+    navigate('/')
+  }, [navigate])
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: t.bg,
+      color: t.text,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'background 0.6s ease, color 0.4s ease',
+    }}>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet"
+      />
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+        ::selection { background: ${t.accent}40; color: ${t.text} }
+        input::placeholder { font-family: inherit; color: ${t.muted} }
+        button { font-family: inherit }
+      `}</style>
+      <AnimatedBackground />
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <TopBar pathname={location.pathname} onHome={handleHome} />
+        <Routes>
+          <Route path="/"         element={<Home />} />
+          <Route path="/import"   element={<Import />} />
+          <Route path="/machine"  element={<Machine />} />
+          <Route path="/projet"   element={<Projet />} />
+          <Route path="/contacts" element={<Contacts />} />
+          <Route path="/options"  element={<Options />} />
+          <Route path="/generate" element={<Generate />} />
+          <Route path="*"         element={<Home />} />
+        </Routes>
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
   return (
-    <div className="min-h-full">
-      <Header />
-      <main className="mx-auto max-w-page px-6 py-12 md:px-20">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/import" element={<Import />} />
-          <Route path="/options" element={<Options />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/generate" element={<Generate />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-    </div>
-  )
-}
-
-function Header() {
-  return (
-    <header className="border-b border-ink-muted/20">
-      <div className="mx-auto flex max-w-page items-center justify-between px-6 py-4 md:px-20">
-        <Link to="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
-          <span>INVENIO <span className="text-ink-muted">· France Air</span></span>
-          <BaserowBadge />
-        </Link>
-        <nav className="flex items-center gap-6 text-sm">
-          <Link to="/" className="hover:text-accent">
-            Accueil
-          </Link>
-          <Link to="/import" className="hover:text-accent">
-            Importer une fiche
-          </Link>
-          <Link to="/options" className="hover:text-accent">
-            Options
-          </Link>
-          <Link to="/contacts" className="hover:text-accent">
-            Contacts
-          </Link>
-          <Link to="/generate" className="hover:text-accent">
-            Générer
-          </Link>
-        </nav>
-      </div>
-    </header>
-  )
-}
-
-function NotFound() {
-  return (
-    <div className="py-24 text-center">
-      <h1 className="text-3xl font-semibold">Page introuvable</h1>
-      <p className="mt-3 text-ink-muted">Cette page n'existe pas (encore).</p>
-    </div>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }

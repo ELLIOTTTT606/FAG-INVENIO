@@ -1,0 +1,34 @@
+# ═══════════════════════════════════════════════════
+# Caddyfile — INVENIO
+# SSL automatique via Let's Encrypt + DuckDNS
+# ═══════════════════════════════════════════════════
+
+{$DOMAIN} {
+
+    # Proxy vers l'application INVENIO
+    reverse_proxy invenio:8000
+
+    # En-têtes de sécurité
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Limite uploads (fiches GALLETTI)
+    request_body {
+        max_size 30MB
+    }
+
+    # Logs structurés
+    log {
+        output file /var/log/caddy/invenio.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+
+    # GZIP
+    encode gzip
+}

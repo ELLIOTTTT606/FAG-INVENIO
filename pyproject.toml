@@ -86,3 +86,6 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 ignore_missing_imports = true
 files = ["src", "tools"]
+
+[tool.vercel]
+entrypoint = "src.api.main:app"

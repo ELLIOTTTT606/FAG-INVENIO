@@ -1,0 +1,199 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════════
+# INVENIO — Stack complète de production
+# Oracle Cloud Always Free · ARM64 Ampere A1
+#
+# Accès public  : https://${DOMAIN}             → INVENIO
+# Accès interne : via SSH tunnel (scripts/tunnel.sh)
+#   localhost:8080  → NocoDB     (base de données)
+#   localhost:5678  → n8n        (automation)
+#   localhost:8001  → Windmill   (scripts → apps)
+#   localhost:3000  → Metabase   (analytics)
+#   localhost:11434 → Ollama     (IA locale)
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL partagé ────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-invenio}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: db_nocodb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-invenio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Caddy — SSL automatique + reverse proxy ───────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - invenio
+
+  # ── INVENIO — Application principale (PUBLIQUE) ──────────────
+  invenio:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # NocoDB remplace Baserow
+      NOCODB_URL: "http://nocodb:8080"
+    volumes:
+      - invenio_uploads:/tmp/invenio_uploads
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      nocodb:
+        condition: service_healthy
+
+  # ── NocoDB — Base de données (remplace Baserow) ───────────────
+  # Interface web : http://localhost:8080 (via SSH tunnel)
+  nocodb:
+    image: nocodb/nocodb:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"   # Interne uniquement
+    environment:
+      NC_DB: "pg://postgres:5432?u=${DB_USER:-invenio}&p=${DB_PASSWORD}&d=db_nocodb"
+      NC_AUTH_JWT_SECRET: ${SECRET_KEY}
+      NC_DISABLE_TELE: "true"
+    volumes:
+      - nocodb_data:/usr/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── n8n — Automation des workflows ───────────────────────────
+  # Interface web : http://localhost:5678 (via SSH tunnel)
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"   # Interne uniquement
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: db_n8n
+      DB_POSTGRESDB_USER: ${DB_USER:-invenio}
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${SECRET_KEY}
+      N8N_HOST: localhost
+      WEBHOOK_URL: "http://localhost:5678"
+      GENERIC_TIMEZONE: Europe/Paris
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Windmill — Scripts CLI → Apps web ────────────────────────
+  # Interface web : http://localhost:8001 (via SSH tunnel)
+  windmill:
+    image: ghcr.io/windmill-labs/windmill:main
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"   # Interne uniquement
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-invenio}:${DB_PASSWORD}@postgres/db_windmill"
+      MODE: server
+      BASE_URL: "http://localhost:8001"
+    volumes:
+      - windmill_data:/tmp/windmill
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  windmill-worker:
+    image: ghcr.io/windmill-labs/windmill:main
+    restart: unless-stopped
+    command: worker
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-invenio}:${DB_PASSWORD}@postgres/db_windmill"
+      MODE: worker
+      WORKER_GROUP: default
+    volumes:
+      - windmill_data:/tmp/windmill
+      - /var/run/docker.sock:/var/run/docker.sock   # Pour exécuter des scripts Docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Metabase — Analytics & Dashboards ────────────────────────
+  # Interface web : http://localhost:3000 (via SSH tunnel)
+  metabase:
+    image: metabase/metabase:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"   # Interne uniquement
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: db_metabase
+      MB_DB_USER: ${DB_USER:-invenio}
+      MB_DB_PASS: ${DB_PASSWORD}
+      JAVA_TIMEZONE: Europe/Paris
+    volumes:
+      - metabase_data:/metabase-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Ollama — IA locale (Mistral / Llama) ─────────────────────
+  # API : http://localhost:11434 (via SSH tunnel)
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434" # Interne uniquement
+    volumes:
+      - ollama_data:/root/.ollama
+    # Le modèle est téléchargé par install.sh après démarrage
+
+volumes:
+  postgres_data:
+  nocodb_data:
+  n8n_data:
+  windmill_data:
+  metabase_data:
+  ollama_data:
+  invenio_uploads:
+  caddy_data:
+  caddy_config:

@@ -1,27 +1,49 @@
-import type { ParseResponse } from './types'
+// ─────────────────────────────────────────────────────────────────────────────
+// Client API INVENIO — fonctions partagées
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, public status: number) {
     super(message)
     this.name = 'ApiError'
   }
 }
 
+const BASE = import.meta.env.VITE_API_URL || ''
+
+// ── Parser de fichier GALLETTI (DOCX ou PDF) ──────────────────────────────────
+import type { ParseResponse } from './types'
+export type { CanonicalRecord, Warning, ParseResponse } from './types'
+
 export async function parseFile(file: File): Promise<ParseResponse> {
-  const ext = file.name.toLowerCase().split('.').pop()
-  if (ext !== 'docx' && ext !== 'pdf') {
-    throw new ApiError(`Unsupported file type .${ext}. Use .docx or .pdf.`, 415)
-  }
-  const path = ext === 'docx' ? '/parse/docx' : '/parse/pdf'
-  const url = `${import.meta.env.VITE_API_URL || ''}${path}`
+  const form = new FormData()
+  form.append('file', file)
 
-  const body = new FormData()
-  body.append('file', file)
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  const endpoint = ext === 'pdf' ? '/parse/pdf' : '/parse/docx'
 
-  const response = await fetch(url, { method: 'POST', body })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new ApiError(detail || `Parse failed with status ${response.status}`, response.status)
+  const r = await fetch(`${BASE}${endpoint}`, {
+    method: 'POST',
+    body:   form,
+  })
+
+  if (!r.ok) {
+    const detail = await r.text().catch(() => '')
+    throw new ApiError(
+      detail || `Erreur de parsing (${r.status})`,
+      r.status,
+    )
   }
-  return (await response.json()) as ParseResponse
+
+  return r.json()
+}
+
+// ── Health check ──────────────────────────────────────────────────────────────
+export async function healthCheck(): Promise<boolean> {
+  try {
+    const r = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) })
+    return r.ok
+  } catch {
+    return false
+  }
 }

@@ -1,156 +1,218 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ApiError } from '../api/client'
-import type { DepartmentContacts } from '../api/contacts'
+import { useState, useEffect, useCallback } from 'react'
+import { Link, useNavigate }               from 'react-router-dom'
+import { useTheme, C }                     from '../lib/theme'
 import {
-  fetchPdfBlob,
-  fetchPreviewHtml,
-  suggestedFilename,
-  type GenerationRequest,
-  type PlanAttachment,
-} from '../api/generate'
-import { PlansUploader } from '../components/PlansUploader'
-import {
-  readContacts,
-  readImport,
-  readSelectedOptions,
+  readImport, loadOptions, loadContacts, clearSession,
 } from '../lib/sessionContext'
+import { Reveal, PageTransition, MonoLabel } from '../components/ui/atoms'
+import { BottomBar }                         from '../components/layout/Navigation'
 
-type Status = 'idle' | 'loading' | 'ready' | 'error'
+const BASE = import.meta.env.VITE_API_URL || ''
 
 export default function Generate() {
+  const { theme: t } = useTheme()
+  const navigate     = useNavigate()
+
+  const ctx          = readImport()
+  const optionCodes  = loadOptions()
+  const contacts     = loadContacts()
+
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
-  const [status, setStatus] = useState<Status>('idle')
-  const [error, setError] = useState<string | null>(null)
+  const [pdfError,    setPdfError]    = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [plans, setPlans] = useState<PlanAttachment[]>([])
-
-  const importContext = useMemo(() => readImport(), [])
-  const contacts = useMemo(() => readContacts<DepartmentContacts>(), [])
-  const selectedOptionCodes = useMemo(() => readSelectedOptions(), [])
-
-  const request: GenerationRequest | null = useMemo(() => {
-    if (!importContext?.record) return null
-    return {
-      record: importContext.record,
-      contacts: contacts ?? null,
-      selectedOptionCodes,
-      plans,
-    }
-  }, [importContext, contacts, selectedOptionCodes, plans])
 
   useEffect(() => {
-    if (!request) {
-      setStatus('idle')
-      return
-    }
-    const controller = new AbortController()
-    setStatus('loading')
-    setError(null)
-    fetchPreviewHtml(request)
-      .then((html) => {
-        if (controller.signal.aborted) return
-        setPreviewHtml(html)
-        setStatus('ready')
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        const message = err instanceof ApiError ? err.message : 'Erreur de prévisualisation.'
-        setError(message)
-        setStatus('error')
-      })
-    return () => controller.abort()
-  }, [request])
+    if (!ctx) return
+    fetch(`${BASE}/generate/preview`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ record: ctx.record, option_codes: optionCodes }),
+    })
+      .then(r => r.ok ? r.text() : Promise.reject(r))
+      .then(html => setPreviewHtml(html))
+      .catch(() => { /* preview unavailable */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleDownload = async () => {
-    if (!request) return
+  const handleDownload = useCallback(async () => {
+    if (!ctx) return
     setDownloading(true)
-    setError(null)
+    setPdfError(null)
     try {
-      const blob = await fetchPdfBlob(request)
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = suggestedFilename(request.record)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const r = await fetch(`${BASE}/generate/pdf`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ record: ctx.record, option_codes: optionCodes }),
+      })
+      if (r.status === 503) {
+        setPdfError('WeasyPrint non disponible sur ce serveur.')
+        return
+      }
+      if (!r.ok) throw new Error(`Erreur ${r.status}`)
+      const disposition = r.headers.get('Content-Disposition') ?? ''
+      const filename = disposition.match(/filename="?([^";\s]+)"?/)?.[1] ?? 'INVENIO.pdf'
+      const blob = await r.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = filename
+      a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Erreur de génération PDF.'
-      setError(message)
+      if (!pdfError) setPdfError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally {
       setDownloading(false)
     }
-  }
+  }, [ctx, optionCodes, pdfError])
 
-  if (!request) {
+  const handleReset = () => { clearSession(); navigate('/') }
+
+  // ── État vide ────────────────────────────────────────────────────────────────
+  if (!ctx) {
     return (
-      <section className="space-y-6">
-        <p className="text-sm uppercase tracking-widest text-accent">Étape 4 · Génération</p>
-        <h1 className="text-3xl font-semibold md:text-4xl">Aucune fiche en cours</h1>
-        <p className="max-w-2xl text-ink-muted">
-          Importez d'abord une fiche GALLETTI pour générer le PDF de sélection.
-        </p>
-        <Link
-          to="/import"
-          className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover"
-        >
-          Aller à l'import
-        </Link>
-      </section>
+      <PageTransition pgKey="generate">
+        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px' }}>
+          <p style={{ fontSize: 18, color: t.dim, marginBottom: 24 }}>
+            Aucune fiche en cours
+          </p>
+          <Link
+            to="/import"
+            style={{
+              padding:        '12px 28px',
+              borderRadius:   12,
+              background:     t.accent,
+              color:          t.mode === 'dark' ? t.bg : '#fff',
+              textDecoration: 'none',
+              fontWeight:     600,
+              fontSize:       15,
+            }}
+          >
+            Aller à l'import
+          </Link>
+        </main>
+      </PageTransition>
     )
   }
 
-  const machine = `${request.record.model} ${request.record.size} ${request.record.type}`
+  const { machine } = ctx
+  const machineLabel = [machine.model, machine.size, machine.type].filter(Boolean).join(' ')
 
+  // ── Vue principale ───────────────────────────────────────────────────────────
   return (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-baseline justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-widest text-accent">Étape 4 · Génération</p>
-          <h1 className="mt-2 text-3xl font-semibold md:text-4xl">Aperçu de la fiche · {machine}</h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            {selectedOptionCodes.length} option(s) retenues ·{' '}
-            {contacts ? `département ${contacts.department}` : 'aucun contact sélectionné'}
-            {plans.length > 0 ? ` · ${plans.length} plan(s)` : ''}
-          </p>
+    <PageTransition pgKey="generate">
+      <main style={{ minHeight: '100vh', padding: '120px 48px 140px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+
+          <Reveal delay={50}>
+            <MonoLabel style={{ marginBottom: 24 }}>
+              <span style={{ width: 24, height: 1, background: t.muted }} />
+              Étape 05 · Génération
+            </MonoLabel>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <h1
+              style={{
+                fontSize:      'clamp(40px, 5vw, 72px)',
+                fontWeight:    700,
+                letterSpacing: '-0.035em',
+                lineHeight:    1,
+                color:         t.text,
+                margin:        '0 0 52px',
+              }}
+            >
+              Vérifiez et générez.
+            </h1>
+          </Reveal>
+
+          {/* Récapitulatif */}
+          <Reveal delay={180}>
+            <div
+              style={{
+                padding:      24,
+                borderRadius: 16,
+                background:   t.surface,
+                border:       `1px solid ${t.border}`,
+                marginBottom: 32,
+                display:      'flex',
+                flexDirection:'column',
+                gap:          8,
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 600, color: t.text }}>{machineLabel}</p>
+              <p style={{ margin: 0, color: t.dim }}>{optionCodes.length} option(s) retenues</p>
+              {contacts?.department && (
+                <p style={{ margin: 0, color: t.dim }}>Département {contacts.department}</p>
+              )}
+            </div>
+          </Reveal>
+
+          {/* Bouton télécharger */}
+          <Reveal delay={220}>
+            <button
+              data-testid="download-pdf"
+              onClick={handleDownload}
+              disabled={downloading}
+              style={{
+                padding:    '14px 32px',
+                borderRadius: 12,
+                border:     'none',
+                background: t.accent,
+                color:      t.mode === 'dark' ? t.bg : '#fff',
+                fontSize:   15,
+                fontWeight: 700,
+                cursor:     downloading ? 'wait' : 'pointer',
+                fontFamily: 'inherit',
+                marginBottom: 24,
+              }}
+            >
+              {downloading ? 'Génération…' : 'Télécharger la fiche PDF'}
+            </button>
+          </Reveal>
+
+          {/* Erreur PDF */}
+          {pdfError && (
+            <div
+              role="alert"
+              style={{
+                padding:      '14px 20px',
+                borderRadius: 12,
+                background:   `${C.ferrari}08`,
+                border:       `1px solid ${C.ferrari}25`,
+                color:        C.ferrari,
+                fontSize:     14,
+                marginBottom: 24,
+              }}
+            >
+              {pdfError}
+            </div>
+          )}
+
+          {/* Aperçu HTML */}
+          {previewHtml && (
+            <Reveal delay={260}>
+              <iframe
+                data-testid="preview-frame"
+                srcDoc={previewHtml}
+                style={{
+                  width:        '100%',
+                  height:       800,
+                  border:       `1px solid ${t.border}`,
+                  borderRadius: 12,
+                }}
+                title="Aperçu fiche"
+              />
+            </Reveal>
+          )}
+
         </div>
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={downloading || status !== 'ready'}
-          className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-50"
-          data-testid="download-pdf"
-        >
-          {downloading ? 'Génération en cours…' : 'Télécharger le PDF'}
-        </button>
-      </header>
+      </main>
 
-      <div className="rounded-2xl border border-ink-muted/15 p-5">
-        <PlansUploader plans={plans} onChange={setPlans} />
-      </div>
-
-      {status === 'loading' ? (
-        <p role="status" className="text-sm text-ink-muted">
-          Construction de l'aperçu…
-        </p>
-      ) : null}
-
-      {error ? (
-        <div role="alert" className="rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          {error}
-        </div>
-      ) : null}
-
-      {previewHtml ? (
-        <iframe
-          title="Aperçu fiche INVENIO"
-          srcDoc={previewHtml}
-          className="h-[80vh] w-full rounded-2xl border border-ink-muted/15 bg-white"
-          data-testid="preview-frame"
-        />
-      ) : null}
-    </section>
+      <BottomBar
+        onBack={() => navigate('/options')}
+        onReset={handleReset}
+        wide
+      />
+    </PageTransition>
   )
 }

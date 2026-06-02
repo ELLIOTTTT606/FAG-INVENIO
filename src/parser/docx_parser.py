@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -18,7 +19,6 @@ from docx.document import Document as DocxDocument
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
-from lxml import etree
 
 from src.parser._common import (
     DESIGNATION_RE,
@@ -60,25 +60,46 @@ def _extract_table_rows(table: Table) -> list[list[str]]:
     return [[cell.text.strip() for cell in row.cells] for row in table.rows]
 
 
-# Extensions non-XML légitimes que python-docx ne doit pas essayer de parser
-_BINARY_EXTENSIONS = {".jpeg", ".jpg", ".png", ".gif", ".bmp", ".tiff", ".emf", ".wmf", ".bin"}
+def _open_docx_safe(path: Path | str) -> DocxDocument:
+    """Ouvre un DOCX en nettoyant les médias manquants dans le ZIP."""
+    with open(path, "rb") as f:
+        raw = f.read()
 
+    # Lire le ZIP original
+    src_zip = zipfile.ZipFile(io.BytesIO(raw), "r")
+    names = set(src_zip.namelist())
 
-def _open_docx_safe(path: Path) -> DocxDocument:
-    """Ouvre un DOCX en retirant les parts binaires qui font crasher python-docx."""
-    try:
-        return Document(str(path))
-    except etree.XMLSyntaxError:
-        pass
-
-    # Reconstruire le ZIP sans les parts binaires problématiques
+    # Reconstruire un ZIP propre sans les entrées cassées
     buf = io.BytesIO()
-    with zipfile.ZipFile(path, "r") as src, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst:
-        for item in src.infolist():
-            ext = Path(item.filename).suffix.lower()
-            if ext in _BINARY_EXTENSIONS:
-                continue
-            dst.writestr(item, src.read(item.filename))
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst_zip:
+        for item in src_zip.infolist():
+            data = src_zip.read(item.filename)
+
+            # Nettoyer les fichiers .rels : supprimer les refs vers médias inexistants
+            if item.filename.endswith(".rels"):
+                # Dossier de base depuis lequel les Target relatifs sont résolus
+                base = "/".join(item.filename.split("/")[:-2])
+
+                def keep_rel(match: re.Match[str], base: str = base) -> str:
+                    target = re.search(r'Target="([^"]+)"', match.group(0))
+                    if not target:
+                        return match.group(0)
+                    t = target.group(1).lstrip("/")
+                    full = f"{base}/{t}".lstrip("/") if base else t
+                    if full not in names and t not in names:
+                        return ""
+                    return match.group(0)
+
+                try:
+                    text = data.decode("utf-8")
+                    text = re.sub(r"<Relationship[^/]*/>", keep_rel, text)
+                    data = text.encode("utf-8")
+                except Exception:  # noqa: BLE001 - .rels illisible : on garde l'original
+                    pass
+
+            dst_zip.writestr(item, data)
+
+    src_zip.close()
     buf.seek(0)
     return Document(buf)
 

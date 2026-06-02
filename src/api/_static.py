@@ -44,7 +44,10 @@ def mount_frontend(app: FastAPI) -> None:
     # Fichiers racine (favicon, robots.txt, manifest…)
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon() -> FileResponse:
-        return FileResponse(_DIST / "favicon.ico")
+        f = _DIST / "favicon.ico"
+        if f.is_file():
+            return FileResponse(f)
+        return FileResponse(_DIST / "index.html")
 
     # ── Catch-all SPA — doit être le DERNIER handler enregistré ──
     @app.get("/{full_path:path}", include_in_schema=False)

@@ -22,20 +22,25 @@ export async function parseFile(file: File): Promise<ParseResponse> {
   const ext = file.name.split('.').pop()?.toLowerCase()
   const endpoint = ext === 'pdf' ? '/parse/pdf' : '/parse/docx'
 
-  const r = await fetch(`${BASE}${endpoint}`, {
-    method: 'POST',
-    body:   form,
-  })
+  try {
+    const r = await fetch(`${BASE}${endpoint}`, {
+      method: 'POST',
+      body:   form,
+    })
 
-  if (!r.ok) {
-    const detail = await r.text().catch(() => '')
-    throw new ApiError(
-      detail || `Erreur de parsing (${r.status})`,
-      r.status,
-    )
+    if (!r.ok) {
+      const detail = await r.text().catch(() => '')
+      throw new ApiError(
+        detail || `Erreur de parsing (${r.status})`,
+        r.status,
+      )
+    }
+
+    return r.json()
+  } catch (err) {
+    console.error('parseFile error:', err)
+    throw err
   }
-
-  return r.json()
 }
 
 // ── Health check ──────────────────────────────────────────────────────────────

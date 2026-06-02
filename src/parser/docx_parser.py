@@ -7,8 +7,10 @@ extraction logic in `src.parser._common`.
 
 from __future__ import annotations
 
+import io
 import json
 import sys
+import zipfile
 from pathlib import Path
 
 from docx import Document
@@ -58,6 +60,29 @@ def _extract_table_rows(table: Table) -> list[list[str]]:
     return [[cell.text.strip() for cell in row.cells] for row in table.rows]
 
 
+# Extensions non-XML légitimes que python-docx ne doit pas essayer de parser
+_BINARY_EXTENSIONS = {".jpeg", ".jpg", ".png", ".gif", ".bmp", ".tiff", ".emf", ".wmf", ".bin"}
+
+
+def _open_docx_safe(path: Path) -> DocxDocument:
+    """Ouvre un DOCX en retirant les parts binaires qui font crasher python-docx."""
+    try:
+        return Document(str(path))
+    except etree.XMLSyntaxError:
+        pass
+
+    # Reconstruire le ZIP sans les parts binaires problématiques
+    buf = io.BytesIO()
+    with zipfile.ZipFile(path, "r") as src, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst:
+        for item in src.infolist():
+            ext = Path(item.filename).suffix.lower()
+            if ext in _BINARY_EXTENSIONS:
+                continue
+            dst.writestr(item, src.read(item.filename))
+    buf.seek(0)
+    return Document(buf)
+
+
 def parse_docx(
     path: Path | str,
     mapping_path: Path | str | None = None,
@@ -71,12 +96,7 @@ def parse_docx(
         decoder_path = Path(__file__).parent / "designation_decoder.csv"
     rules_by_section = index_rules(load_mapping(Path(mapping_path)))
 
-    try:
-        document = Document(str(path))
-    except etree.XMLSyntaxError as exc:
-        raise ValueError(
-            f"Le fichier DOCX contient des données XML invalides et ne peut pas être lu : {exc}"
-        ) from exc
+    document = _open_docx_safe(path)
     data = empty_payload(path.name, fmt="docx")
     warnings: list[dict[str, str]] = data["warnings"]
 

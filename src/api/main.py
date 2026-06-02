@@ -104,7 +104,7 @@ def _parse_upload(file: UploadFile, allowed_suffix: str) -> dict[str, Any]:
     "/parse/docx",
     summary="Parse a GALLETTI DOCX file and return canonical JSON",
 )
-async def parse_docx_endpoint(file: UploadFile) -> dict[str, Any]:
+async def parse_docx_endpoint(file: UploadFile) -> Any:
     try:
         return _parse_upload(file, ".docx")
     except HTTPException:
@@ -120,7 +120,7 @@ async def parse_docx_endpoint(file: UploadFile) -> dict[str, Any]:
     "/parse/pdf",
     summary="Parse a GALLETTI native PDF and return canonical JSON",
 )
-async def parse_pdf_endpoint(file: UploadFile) -> dict[str, Any]:
+async def parse_pdf_endpoint(file: UploadFile) -> Any:
     try:
         return _parse_upload(file, ".pdf")
     except HTTPException:

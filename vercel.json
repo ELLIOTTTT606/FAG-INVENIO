@@ -1,13 +1,16 @@
 {
+  "buildCommand": "cd ui && npm install && npm run build",
+  "outputDirectory": "ui/dist",
   "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "50mb" }
-    }
+    { "src": "src/api/main.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "api/index.py" },
-    { "src": "/(.*)", "dest": "api/index.py" }
+    { "src": "/parse/(.*)",    "dest": "src/api/main.py" },
+    { "src": "/contacts/(.*)", "dest": "src/api/main.py" },
+    { "src": "/clients(.*)",   "dest": "src/api/main.py" },
+    { "src": "/options(.*)",   "dest": "src/api/main.py" },
+    { "src": "/generate/(.*)", "dest": "src/api/main.py" },
+    { "src": "/health",        "dest": "src/api/main.py" },
+    { "src": "/(.*)",          "dest": "ui/dist/$1"       }
   ]
 }

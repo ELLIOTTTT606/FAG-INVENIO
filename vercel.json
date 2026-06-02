@@ -1,16 +1,15 @@
 {
-  "buildCommand": "cd ui && npm install && npm run build",
-  "outputDirectory": "ui/dist",
+  "version": 2,
   "builds": [
-    { "src": "src/api/main.py", "use": "@vercel/python" }
+    {
+      "src": "src/api/main.py",
+      "use": "@vercel/python"
+    }
   ],
   "routes": [
-    { "src": "/parse/(.*)",    "dest": "src/api/main.py" },
-    { "src": "/contacts/(.*)", "dest": "src/api/main.py" },
-    { "src": "/clients(.*)",   "dest": "src/api/main.py" },
-    { "src": "/options(.*)",   "dest": "src/api/main.py" },
-    { "src": "/generate/(.*)", "dest": "src/api/main.py" },
-    { "src": "/health",        "dest": "src/api/main.py" },
-    { "src": "/(.*)",          "dest": "ui/dist/$1"       }
+    {
+      "src": "/(.*)",
+      "dest": "src/api/main.py"
+    }
   ]
 }

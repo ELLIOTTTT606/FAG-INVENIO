@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import json
-import re
 import sys
 import zipfile
 from pathlib import Path
@@ -60,43 +59,29 @@ def _extract_table_rows(table: Table) -> list[list[str]]:
     return [[cell.text.strip() for cell in row.cells] for row in table.rows]
 
 
+_XML_STUB = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><r/>'
+
+
 def _open_docx_safe(path: Path | str) -> DocxDocument:
-    """Ouvre un DOCX en nettoyant les médias manquants dans le ZIP."""
+    """Ouvre un DOCX en neutralisant les parts binaires qui font crasher python-docx.
+
+    python-docx parse chaque part référencée comme du XML. Les fichiers binaires
+    (thumbnails, images embarquées) déclenchent une XMLSyntaxError. On les détecte
+    par leur contenu (pas leur extension) et on remplace leur blob par un XML stub
+    vide — ils restent dans le ZIP pour satisfaire python-docx mais ne crashent plus.
+    """
     with open(path, "rb") as f:
         raw = f.read()
 
-    # Lire le ZIP original
     src_zip = zipfile.ZipFile(io.BytesIO(raw), "r")
-    names = set(src_zip.namelist())
 
-    # Reconstruire un ZIP propre sans les entrées cassées
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst_zip:
         for item in src_zip.infolist():
             data = src_zip.read(item.filename)
-
-            # Nettoyer les fichiers .rels : supprimer les refs vers médias inexistants
-            if item.filename.endswith(".rels"):
-                # Dossier de base depuis lequel les Target relatifs sont résolus
-                base = "/".join(item.filename.split("/")[:-2])
-
-                def keep_rel(match: re.Match[str], base: str = base) -> str:
-                    target = re.search(r'Target="([^"]+)"', match.group(0))
-                    if not target:
-                        return match.group(0)
-                    t = target.group(1).lstrip("/")
-                    full = f"{base}/{t}".lstrip("/") if base else t
-                    if full not in names and t not in names:
-                        return ""
-                    return match.group(0)
-
-                try:
-                    text = data.decode("utf-8")
-                    text = re.sub(r"<Relationship[^/]*/>", keep_rel, text)
-                    data = text.encode("utf-8")
-                except Exception:  # noqa: BLE001 - .rels illisible : on garde l'original
-                    pass
-
+            # Remplacer les blobs non-XML par un stub XML minimal
+            if data and not data.lstrip(b"\xef\xbb\xbf\r\n \t").startswith(b"<"):
+                data = _XML_STUB
             dst_zip.writestr(item, data)
 
     src_zip.close()

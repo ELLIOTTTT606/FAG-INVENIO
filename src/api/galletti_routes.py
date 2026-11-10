@@ -99,7 +99,18 @@ def generate_fiche(
     fmt: str = Query("html", alias="format", pattern="^(html|pdf)$"),
 ) -> Response:
     try:
-        results = _client().get_results(family=family, model=model, project_id=project_id)
+        # Retrouver les identifiants d'article du projet (requis par RisultatiCalcolo)
+        detail = _client().get_project(project_id)
+        article = next(
+            (a for a in detail.articles if a.model == model and a.is_machine), None
+        )
+        results = _client().get_results(
+            family=family,
+            model=model,
+            project_id=project_id,
+            id_riga_offerta=article.id_raggruppamento if article else 0,
+            id_articolo=article.id_articolo if article else 0,
+        )
     except GallettiAuthError as err:
         raise HTTPException(status_code=503, detail=str(err)) from err
     except GallettiError as err:

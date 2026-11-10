@@ -124,6 +124,8 @@ class GallettiArticle:
     description: str
     price: float | None
     option_codes: list[str] = field(default_factory=list)
+    id_articolo: int = 0
+    id_raggruppamento: int = 0
 
     @property
     def is_machine(self) -> bool:
@@ -138,6 +140,8 @@ class GallettiArticle:
             "description": self.description,
             "price": self.price,
             "option_codes": self.option_codes,
+            "id_articolo": self.id_articolo,
+            "id_raggruppamento": self.id_raggruppamento,
         }
 
 
@@ -188,6 +192,8 @@ def parse_project_html(html: str, *, project_id: int = 0) -> GallettiProjectDeta
                     description=str(row.get("ArticoloDescrizioneTradotta") or ""),
                     price=float(price_raw) if isinstance(price_raw, int | float) else None,
                     option_codes=_split_option_codes(row.get("ListaOpzioniConfigurazione")),
+                    id_articolo=int(row.get("IdArticolo") or 0),
+                    id_raggruppamento=int(row.get("IdRaggruppamento") or 0),
                 )
             )
         break  # un seul blob d'articles par page
@@ -651,25 +657,35 @@ class GallettiSelectorClient:
         return parse_project_html(html, project_id=project_id)
 
     def get_results(
-        self, *, family: str, model: str, project_id: int = 0, id_carrello: int = 0
+        self,
+        *,
+        family: str,
+        model: str,
+        project_id: int = 0,
+        id_carrello: int = 0,
+        id_riga_offerta: int = 0,
+        id_articolo: int = 0,
     ) -> GallettiResults:
         """Récupère les résultats de calcul d'un modèle (conditions + performances).
 
         family/model forment le paramètre ``modelli`` : ``"GAL|PLE HS;PLE062HS"``.
+        ``id_riga_offerta`` (IdRaggruppamento) et ``id_articolo`` sont requis par
+        GALLETTI pour un modèle d'un projet existant.
         """
-        # Ouvrir d'abord le projet charge son contexte dans la session : sans ça,
-        # RisultatiCalcolo renvoie une erreur côté GALLETTI.
+        # Ouvrir d'abord le projet charge son contexte dans la session.
         if project_id:
             self._get_html(f"/Gestione/Offerta/Offerta/{project_id}")
         modelli = f"{family};{model}"
-        html = self._get_html(
-            "/Configuratore/Wizard/RisultatiCalcolo",
-            params={
-                "modelli": modelli,
-                "idcarrello": str(id_carrello),
-                "idofferta": str(project_id),
-            },
-        )
+        params = {
+            "modelli": modelli,
+            "idcarrello": str(id_carrello),
+            "idofferta": str(project_id),
+        }
+        if id_riga_offerta:
+            params["idrigaofferta"] = str(id_riga_offerta)
+        if id_articolo:
+            params["idarticolo"] = str(id_articolo)
+        html = self._get_html("/Configuratore/Wizard/RisultatiCalcolo", params=params)
         return parse_results_html(html, model=model)
 
 

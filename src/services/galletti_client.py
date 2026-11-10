@@ -29,8 +29,9 @@ plus tard.
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
 import httpx
@@ -39,6 +40,10 @@ DEFAULT_BASE_URL = "https://offer.gallettigroup.com"
 
 # id interne du projet, extrait de onclick="readOnlyOfferta(306090);"
 _PROJECT_ID_RE = re.compile(r"readOnlyOfferta\((\d+)\)")
+
+# Le détail d'un projet embarque ses lignes d'articles dans un
+# JSON.parse('[{...}]') de la page. On repère le blob contenant "ArticoloModello".
+_JSON_PARSE_RE = re.compile(r"JSON\.parse\('((?:[^'\\]|\\.)*)'\)")
 
 
 class GallettiError(RuntimeError):
@@ -96,6 +101,86 @@ class GallettiProject:
             "utilisateur": self.utilisateur,
             "prix_total": self.prix_total,
         }
+
+
+@dataclass(frozen=True)
+class GallettiArticle:
+    """Une ligne d'article d'un projet (machine, accessoire ou voie de dépense)."""
+
+    position: int
+    model: str
+    family: str
+    description: str
+    price: float | None
+    option_codes: list[str] = field(default_factory=list)
+
+    @property
+    def is_machine(self) -> bool:
+        """True si la ligne porte un modèle (par opposition à une voie de dépense)."""
+        return bool(self.model)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "position": self.position,
+            "model": self.model,
+            "family": self.family,
+            "description": self.description,
+            "price": self.price,
+            "option_codes": self.option_codes,
+        }
+
+
+@dataclass(frozen=True)
+class GallettiProjectDetail:
+    """Contenu d'un projet (offerta) : ses lignes d'articles."""
+
+    id: int
+    articles: list[GallettiArticle]
+
+    @property
+    def machines(self) -> list[GallettiArticle]:
+        return [a for a in self.articles if a.is_machine]
+
+
+def _split_option_codes(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [c.strip() for c in raw.split(",") if c.strip()]
+
+
+def parse_project_html(html: str, *, project_id: int = 0) -> GallettiProjectDetail:
+    """Parse la page détail d'un projet en liste d'articles.
+
+    Les lignes sont embarquées dans un ``JSON.parse('[{...}]')`` de la page ;
+    on repère le blob contenant ``ArticoloModello`` et on le décode.
+    """
+    articles: list[GallettiArticle] = []
+    for m in _JSON_PARSE_RE.finditer(html):
+        blob = m.group(1)
+        if "ArticoloModello" not in blob:
+            continue
+        # Littéral JS en guillemets simples -> texte JSON : seul \' est à défaire
+        # (\\uXXXX, \\/ et \\\\ restent du JSON valide).
+        try:
+            rows = json.loads(blob.replace("\\'", "'"))
+        except (json.JSONDecodeError, ValueError):
+            continue
+        for idx, row in enumerate(rows, start=1):
+            if not isinstance(row, dict):
+                continue
+            price_raw = row.get("PrezzoScontato")
+            articles.append(
+                GallettiArticle(
+                    position=int(row.get("Posizione") or idx),
+                    model=str(row.get("ArticoloModello") or ""),
+                    family=str(row.get("IdFamiglia") or ""),
+                    description=str(row.get("ArticoloDescrizioneTradotta") or ""),
+                    price=float(price_raw) if isinstance(price_raw, int | float) else None,
+                    option_codes=_split_option_codes(row.get("ListaOpzioniConfigurazione")),
+                )
+            )
+        break  # un seul blob d'articles par page
+    return GallettiProjectDetail(id=project_id, articles=articles)
 
 
 class _OfferteTableParser(HTMLParser):
@@ -250,6 +335,11 @@ class GallettiSelectorClient:
         """Liste les projets (offerte) de l'onglet Gestione/Offerta."""
         html = self._get_html("/Gestione/Offerta", params={"tipoProgetto": str(tipo_progetto)})
         return parse_projects_html(html)
+
+    def get_project(self, project_id: int) -> GallettiProjectDetail:
+        """Récupère le détail d'un projet (ses lignes d'articles)."""
+        html = self._get_html(f"/Gestione/Offerta/Offerta/{project_id}")
+        return parse_project_html(html, project_id=project_id)
 
 
 def make_client_from_env() -> GallettiSelectorClient:

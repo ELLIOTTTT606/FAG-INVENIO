@@ -6,6 +6,7 @@ from src.services.galletti_client import (
     GallettiAuthError,
     GallettiConfig,
     GallettiSelectorClient,
+    parse_project_html,
     parse_projects_html,
 )
 
@@ -88,6 +89,51 @@ def test_list_projects_without_cookie_raises_auth() -> None:
     client = GallettiSelectorClient(GallettiConfig(session_cookie=""))
     try:
         client.list_projects()
+    except GallettiAuthError:
+        return
+    raise AssertionError("GallettiAuthError attendu sans cookie de session")
+
+
+# Fixture reproduisant le JSON.parse('[{...}]') embarqué dans la page détail.
+_PROJECT_HTML = r"""
+<html><body>
+<script>
+var offerta = JSON.parse('[{"IdFamiglia":"GAL|PLE HS","ArticoloModello":"PLE062HS","ArticoloDescrizioneTradotta":"Groupe eau glacee","PrezzoScontato":26515.00,"ListaOpzioniConfigurazione":"10001,10068,10000","Posizione":1},{"IdFamiglia":"GAL|MLI","ArticoloModello":"MLI030H0","ArticoloDescrizioneTradotta":"","PrezzoScontato":10261.00,"ListaOpzioniConfigurazione":"","Posizione":2}]');
+</script>
+</body></html>
+"""
+
+
+def test_parse_project_html_extracts_articles() -> None:
+    detail = parse_project_html(_PROJECT_HTML, project_id=42)
+    assert detail.id == 42
+    assert len(detail.articles) == 2
+
+    first = detail.articles[0]
+    assert first.position == 1
+    assert first.model == "PLE062HS"
+    assert first.family == "GAL|PLE HS"
+    assert first.description == "Groupe eau glacee"
+    assert first.price == 26515.00
+    assert first.option_codes == ["10001", "10068", "10000"]
+    assert first.is_machine is True
+
+    second = detail.articles[1]
+    assert second.model == "MLI030H0"
+    assert second.option_codes == []
+
+
+def test_parse_project_html_no_articles() -> None:
+    detail = parse_project_html("<html><body>rien</body></html>", project_id=7)
+    assert detail.id == 7
+    assert detail.articles == []
+    assert detail.machines == []
+
+
+def test_get_project_without_cookie_raises_auth() -> None:
+    client = GallettiSelectorClient(GallettiConfig(session_cookie=""))
+    try:
+        client.get_project(123)
     except GallettiAuthError:
         return
     raise AssertionError("GallettiAuthError attendu sans cookie de session")

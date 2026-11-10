@@ -8,6 +8,8 @@ from src.services.galletti_client import (
     GallettiSelectorClient,
     parse_project_html,
     parse_projects_html,
+    parse_results_html,
+    results_to_canonical,
 )
 
 # Fixture synthétique reproduisant la structure de la table #dtOfferte
@@ -137,3 +139,65 @@ def test_get_project_without_cookie_raises_auth() -> None:
     except GallettiAuthError:
         return
     raise AssertionError("GallettiAuthError attendu sans cookie de session")
+
+
+# Fixture reproduisant la table #dtParametriCalcolo (avec &nbsp; comme en vrai).
+_RESULTS_HTML = """
+<table id="dtParametriCalcolo">
+  <tr><td>Données d'Entrée</td></tr>
+  <tr><td>Refroidissement&nbsp;</td></tr>
+  <tr><td>Temp. entrée eau utilisation</td><td>°C</td><td>&nbsp; 12.0</td></tr>
+  <tr><td>Temp. sortie eau utilisation</td><td>°C</td><td>&nbsp; 7.0</td></tr>
+  <tr><td>Pourcentage de Charge</td><td>%</td><td>&nbsp; 100</td></tr>
+  <tr><td>Chauffage&nbsp;</td></tr>
+  <tr><td>Temp. entrée eau utilisation</td><td>°C</td><td>&nbsp; 40.0</td></tr>
+  <tr><td>Données pour calcul selon la norme UNI EN 14511&nbsp;</td></tr>
+  <tr><td>Calculs selon la norme UNI EN 14511</td><td>&nbsp; Oui</td></tr>
+  <tr><td>Données de Sortie</td></tr>
+  <tr><td>Refroidissement&nbsp;</td></tr>
+  <tr><td>Puissance de refroidissement (*)</td><td>kW</td><td>&nbsp; 55.0</td></tr>
+  <tr><td>Débit d'eau du circuit utilisateur (*)</td><td>l/h</td><td>&nbsp; 9446</td></tr>
+  <tr><td>EER (*)</td><td>W/W</td><td>&nbsp; 2.60</td></tr>
+  <tr><td>Chauffage&nbsp;</td></tr>
+  <tr><td>Puissance de chauffage (*)</td><td>kW</td><td>&nbsp; 48.6</td></tr>
+  <tr><td>COP (*)</td><td>W/W</td><td>&nbsp; 2.21</td></tr>
+  <tr><td>Common Data&nbsp;</td></tr>
+  <tr><td>Niveau de puissance acoustique Lw (unité de base) [sans options] (**)</td><td>dB(A)</td><td>&nbsp; 81</td></tr>
+  <tr><td>Réfrigérant</td><td>&nbsp; R454B</td></tr>
+  <tr><td>GWP</td><td>&nbsp; 466</td></tr>
+</table>
+"""
+
+
+def test_parse_results_extracts_rows_with_sections() -> None:
+    res = parse_results_html(_RESULTS_HTML, model="PLE062HS")
+    assert res.model == "PLE062HS"
+    # La valeur froid est bien scopée à sa section/groupe (pas confondue avec chaud)
+    assert res.find("entrée eau", group="Refroidissement", section="Données d'Entrée") == "12.0"
+    assert res.find("Puissance de refroidissement", section="Données de Sortie") == "55.0"
+
+
+def test_results_to_canonical_maps_key_figures() -> None:
+    res = parse_results_html(_RESULTS_HTML, model="PLE062HS")
+    canon = results_to_canonical(res, family="GAL|PLE HS")
+
+    assert canon["model"] == "PLE062HS"
+    assert canon["family"] == "GAL|PLE HS"
+
+    perf = canon["performance"]
+    assert perf["cooling"]["power_kw"] == 55.0
+    assert perf["cooling"]["efficiency"] == 2.60
+    assert perf["heating"]["power_kw"] == 48.6
+    assert perf["heating"]["efficiency"] == 2.21
+
+    assert canon["hydraulics"]["cooling"]["water_flow_lh"] == 9446.0
+    assert canon["acoustic"]["lw_base_db"] == 81.0
+    assert canon["general"]["refrigerant"] == "R454B"
+    assert canon["general"]["gwp"] == 466.0
+    assert canon["norm"]["en14511"] == "Oui"
+
+
+def test_parse_results_empty_without_table() -> None:
+    res = parse_results_html("<html>pas de table</html>", model="X")
+    assert res.rows == []
+    assert res.find("quoi que ce soit") is None

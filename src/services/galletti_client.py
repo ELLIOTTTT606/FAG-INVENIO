@@ -183,6 +183,188 @@ def parse_project_html(html: str, *, project_id: int = 0) -> GallettiProjectDeta
     return GallettiProjectDetail(id=project_id, articles=articles)
 
 
+# --- Résultats de calcul (page RisultatiCalcolo, table #dtParametriCalcolo) ---
+
+# Les deux sections de tête du tableau de résultats.
+_SECTION_INPUT = "Données d'Entrée"
+_SECTION_OUTPUT = "Données de Sortie"
+_TOP_SECTIONS = {_SECTION_INPUT, _SECTION_OUTPUT}
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_TR_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
+_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.S)
+_RESULTS_TABLE_RE = re.compile(
+    r'<table[^>]*id="dtParametriCalcolo".*?</table>', re.S
+)
+
+
+def _clean_cell(raw: str) -> str:
+    import html as _html
+
+    # Déséchapper d'abord (&nbsp; -> \xa0) puis normaliser les espaces : split()
+    # traite \xa0 comme un blanc, donc les espaces insécables disparaissent.
+    text = _html.unescape(_TAG_RE.sub(" ", raw))
+    return " ".join(text.split())
+
+
+@dataclass(frozen=True)
+class ResultRow:
+    """Une ligne de données du tableau de résultats."""
+
+    section: str  # "Données d'Entrée" | "Données de Sortie"
+    group: str  # "Refroidissement" | "Chauffage" | "Common Data" | ...
+    label: str
+    unit: str
+    value: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "section": self.section,
+            "group": self.group,
+            "label": self.label,
+            "unit": self.unit,
+            "value": self.value,
+        }
+
+
+@dataclass(frozen=True)
+class GallettiResults:
+    """Résultats de calcul d'un modèle : conditions d'entrée + performances."""
+
+    model: str
+    rows: list[ResultRow]
+
+    def find(self, label_substr: str, *, group: str | None = None, section: str | None = None) -> str | None:
+        """Retourne la 1re valeur dont le label contient ``label_substr`` (insensible casse)."""
+        needle = label_substr.casefold()
+        for r in self.rows:
+            if group is not None and r.group != group:
+                continue
+            if section is not None and r.section != section:
+                continue
+            if needle in r.label.casefold():
+                return r.value
+        return None
+
+    def to_dict(self) -> dict[str, object]:
+        return {"model": self.model, "rows": [r.to_dict() for r in self.rows]}
+
+
+def _num(value: str | None) -> float | None:
+    """Convertit une valeur Galletti ('12.0', '9446', '-7') en float si possible."""
+    if value is None:
+        return None
+    v = value.replace("\xa0", "").strip()
+    if v in ("", "-"):
+        return None
+    try:
+        return float(v.replace(",", "."))
+    except ValueError:
+        return None
+
+
+def results_to_canonical(
+    results: GallettiResults, *, family: str = "", size: str = ""
+) -> dict[str, object]:
+    """Mappe des résultats de calcul vers un fragment du payload canonique INVENIO.
+
+    Réutilise la même structure que ``empty_payload`` (conditions, performance,
+    hydraulics, acoustic, norm, general) afin que les données API et DOCX
+    convergent vers le même format de fiche.
+    """
+    sec_in, sec_out = _SECTION_INPUT, _SECTION_OUTPUT
+
+    def cond(group: str) -> dict[str, object]:
+        return {
+            "water_in_c": _num(results.find("entrée eau", group=group, section=sec_in)),
+            "water_out_c": _num(results.find("sortie eau", group=group, section=sec_in)),
+            "glycol_pct": _num(results.find("Glycol", group=group, section=sec_in)),
+            "source_air_c": _num(results.find("Air exterieur", group=group, section=sec_in)),
+            "source_humidity_pct": _num(results.find("Humidité", group=group, section=sec_in)),
+            "load_pct": _num(results.find("Charge", group=group, section=sec_in)),
+        }
+
+    def perf(group: str) -> dict[str, object]:
+        power_label = "refroidissement" if group == "Refroidissement" else "chauffage"
+        eff_label = "EER" if group == "Refroidissement" else "COP"
+        seasonal = "SEER" if group == "Refroidissement" else "SCOP"
+        return {
+            "power_kw": _num(
+                results.find(f"Puissance de {power_label} (", group=group, section=sec_out)
+            ),
+            "absorbed_total_kw": _num(
+                results.find("Puissance absorbée totale (", group=group, section=sec_out)
+            ),
+            "efficiency": _num(results.find(f"{eff_label} (", group=group, section=sec_out)),
+            "seasonal_efficiency": _num(results.find(seasonal, group=group, section=sec_out)),
+        }
+
+    def hydro(group: str) -> dict[str, object]:
+        return {
+            "water_flow_lh": _num(results.find("Débit d'eau", group=group, section=sec_out)),
+            "pressure_drop_kpa": _num(
+                results.find("Perte de charge", group=group, section=sec_out)
+            ),
+        }
+
+    cd = "Common Data"
+    return {
+        "model": results.model,
+        "family": family,
+        "size": size,
+        "conditions": {"cooling": cond("Refroidissement"), "heating": cond("Chauffage")},
+        "performance": {"cooling": perf("Refroidissement"), "heating": perf("Chauffage")},
+        "hydraulics": {"cooling": hydro("Refroidissement"), "heating": hydro("Chauffage")},
+        "acoustic": {
+            "lw_base_db": _num(results.find("puissance acoustique Lw", group=cd, section=sec_out)),
+            "lp_base_db": _num(results.find("pression acoustique Lp", group=cd, section=sec_out)),
+            "lw_silent_db": _num(results.find("Lw (Version", group=cd, section=sec_out)),
+        },
+        "norm": {
+            "en14511": results.find("Calculs selon la norme", section=sec_in),
+            "en14511_version": results.find("UNI EN 14511 Version", section=sec_in),
+        },
+        "general": {
+            "refrigerant": results.find("Réfrigérant", group=cd, section=sec_out),
+            "gwp": _num(results.find("GWP", group=cd, section=sec_out)),
+            "power_supply": results.find("Alimentation", group=cd, section=sec_out),
+            "compressors_circuits": results.find("Compresseurs/Circuits", group=cd, section=sec_out),
+            "max_current_fla_a": _num(results.find("Max. courant absorbé", group=cd, section=sec_out)),
+        },
+    }
+
+
+def parse_results_html(html: str, *, model: str = "") -> GallettiResults:
+    """Parse la page RisultatiCalcolo en lignes structurées (section/groupe/label/unité/valeur)."""
+    rows: list[ResultRow] = []
+    tbl_m = _RESULTS_TABLE_RE.search(html)
+    if not tbl_m:
+        return GallettiResults(model=model, rows=rows)
+
+    section = ""
+    group = ""
+    for tr in _TR_RE.findall(tbl_m.group(0)):
+        cells = [_clean_cell(c) for c in _CELL_RE.findall(tr)]
+        cells = [c for c in cells if c]
+        if not cells:
+            continue
+        if len(cells) == 1:
+            # Ligne d'en-tête : soit une section de tête, soit un sous-groupe
+            head = cells[0]
+            if head in _TOP_SECTIONS:
+                section = head
+                group = ""
+            else:
+                group = head
+            continue
+        if len(cells) == 2:
+            label, value, unit = cells[0], cells[1], ""
+        else:  # 3+ : label | unité | valeur
+            label, unit, value = cells[0], cells[1], cells[-1]
+        rows.append(ResultRow(section=section, group=group, label=label, unit=unit, value=value))
+    return GallettiResults(model=model, rows=rows)
+
+
 class _OfferteTableParser(HTMLParser):
     """Extrait les lignes de la table ``#dtOfferte`` (liste des projets).
 
@@ -340,6 +522,24 @@ class GallettiSelectorClient:
         """Récupère le détail d'un projet (ses lignes d'articles)."""
         html = self._get_html(f"/Gestione/Offerta/Offerta/{project_id}")
         return parse_project_html(html, project_id=project_id)
+
+    def get_results(
+        self, *, family: str, model: str, project_id: int = 0, id_carrello: int = 0
+    ) -> GallettiResults:
+        """Récupère les résultats de calcul d'un modèle (conditions + performances).
+
+        family/model forment le paramètre ``modelli`` : ``"GAL|PLE HS;PLE062HS"``.
+        """
+        modelli = f"{family};{model}"
+        html = self._get_html(
+            "/Configuratore/Wizard/RisultatiCalcolo",
+            params={
+                "modelli": modelli,
+                "idcarrello": str(id_carrello),
+                "idofferta": str(project_id),
+            },
+        )
+        return parse_results_html(html, model=model)
 
 
 def make_client_from_env() -> GallettiSelectorClient:

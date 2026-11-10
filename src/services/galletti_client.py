@@ -657,6 +657,10 @@ class GallettiSelectorClient:
 
         family/model forment le paramètre ``modelli`` : ``"GAL|PLE HS;PLE062HS"``.
         """
+        # Ouvrir d'abord le projet charge son contexte dans la session : sans ça,
+        # RisultatiCalcolo renvoie une erreur côté GALLETTI.
+        if project_id:
+            self._get_html(f"/Gestione/Offerta/Offerta/{project_id}")
         modelli = f"{family};{model}"
         html = self._get_html(
             "/Configuratore/Wizard/RisultatiCalcolo",

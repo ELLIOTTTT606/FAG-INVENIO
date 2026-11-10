@@ -52,3 +52,6 @@ generated/
 *.pem
 *.key
 secrets/
+
+# uv lockfile (project uses pip in CI, not uv)
+uv.lock

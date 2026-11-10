@@ -11,6 +11,7 @@ import Projet   from './pages/Projet'
 import Contacts from './pages/Contacts'
 import Options  from './pages/Options'
 import Generate from './pages/Generate'
+import Galletti from './pages/Galletti'
 
 function AppShell() {
   const { theme: t } = useTheme()
@@ -53,6 +54,7 @@ function AppShell() {
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/options"  element={<Options />} />
           <Route path="/generate" element={<Generate />} />
+          <Route path="/galletti" element={<Galletti />} />
           <Route path="*"         element={<Home />} />
         </Routes>
       </div>

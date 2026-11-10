@@ -6,6 +6,7 @@ from src.services.galletti_client import (
     GallettiAuthError,
     GallettiConfig,
     GallettiSelectorClient,
+    _parse_forms,
     parse_project_html,
     parse_projects_html,
     parse_results_html,
@@ -79,6 +80,42 @@ def test_parse_projects_to_dict_roundtrip() -> None:
 def test_config_live_flag() -> None:
     assert GallettiConfig(session_cookie="").live is False
     assert GallettiConfig(session_cookie="sid=abc").live is True
+    # Login mode : identifiant + mot de passe suffisent
+    assert GallettiConfig(username="u", password="p").live is True
+    assert GallettiConfig(username="u").live is False  # mot de passe manquant
+    assert GallettiConfig(username="u", password="p").can_login is True
+
+
+def test_parse_forms_extracts_login_form() -> None:
+    html = """
+    <form id="kc-form-login" action="https://auth/realms/galletti/login-actions/authenticate?session_code=ABC">
+      <input name="username" value="" />
+      <input name="password" type="password" value="" />
+      <input name="credentialId" value="" />
+      <input name="login" type="submit" value="Se connecter" />
+    </form>
+    """
+    forms = _parse_forms(html)
+    assert len(forms) == 1
+    f = forms[0]
+    assert f.action.endswith("session_code=ABC")
+    assert f.has_password is True
+    assert set(f.inputs) == {"username", "password", "credentialId", "login"}
+
+
+def test_parse_forms_extracts_oidc_form_post() -> None:
+    html = """
+    <FORM METHOD="POST" ACTION="https://offer.gallettigroup.com">
+      <INPUT TYPE="HIDDEN" NAME="code" VALUE="abc" />
+      <INPUT TYPE="HIDDEN" NAME="id_token" VALUE="jwt" />
+      <INPUT TYPE="HIDDEN" NAME="state" VALUE="st" />
+    </FORM>
+    """
+    forms = _parse_forms(html)
+    assert len(forms) == 1
+    assert forms[0].action == "https://offer.gallettigroup.com"
+    assert forms[0].inputs["code"] == "abc"
+    assert forms[0].has_password is False
 
 
 def test_config_headers_include_cookie() -> None:

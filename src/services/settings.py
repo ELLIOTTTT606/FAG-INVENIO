@@ -55,13 +55,15 @@ class Settings(BaseSettings):
         default="https://offer.gallettigroup.com", alias="GALLETTI_BASE_URL"
     )
     galletti_cookie: str = Field(default="", alias="GALLETTI_COOKIE")
+    galletti_user: str = Field(default="", alias="GALLETTI_USER")
+    galletti_password: str = Field(default="", alias="GALLETTI_PASSWORD")
     galletti_timeout_seconds: float = Field(default=30.0, alias="GALLETTI_TIMEOUT")
 
     @property
     def galletti_live(self) -> bool:
-        """True quand un cookie de session GALLETTI est configuré."""
+        """True quand GALLETTI est configuré (cookie, ou identifiant+mot de passe)."""
 
-        return bool(self.galletti_cookie)
+        return bool(self.galletti_cookie) or bool(self.galletti_user and self.galletti_password)
 
     @property
     def baserow_live(self) -> bool:

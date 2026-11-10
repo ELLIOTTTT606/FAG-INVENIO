@@ -77,9 +77,10 @@ export default function Galletti() {
           <p className="font-semibold">Connexion GALLETTI non configurée</p>
           <p className="mt-2 text-sm text-ink-muted">{status.message}</p>
           <p className="mt-3 text-sm text-ink-muted">
-            Ajoutez votre cookie de session dans la variable d'environnement{' '}
-            <code className="rounded bg-black/20 px-1">GALLETTI_COOKIE</code> pour activer
-            la liste des projets.
+            Ajoutez vos identifiants GALLETTI dans les variables d'environnement{' '}
+            <code className="rounded bg-black/20 px-1">GALLETTI_USER</code> et{' '}
+            <code className="rounded bg-black/20 px-1">GALLETTI_PASSWORD</code> (connexion
+            automatique) pour activer la liste des projets.
           </p>
         </div>
       )}

@@ -56,16 +56,27 @@ class GallettiAuthError(GallettiError):
 
 @dataclass(frozen=True)
 class GallettiConfig:
-    """Configuration d'accès au configurateur GALLETTI."""
+    """Configuration d'accès au configurateur GALLETTI.
+
+    Deux modes d'authentification :
+      * ``session_cookie`` : cookie de session copié du navigateur (expire vite) ;
+      * ``username`` + ``password`` : login automatique via Keycloak (recommandé).
+    """
 
     base_url: str = DEFAULT_BASE_URL
     session_cookie: str = ""
+    username: str = ""
+    password: str = ""
     timeout_seconds: float = 30.0
 
     @property
     def live(self) -> bool:
-        """True quand un cookie de session est fourni."""
-        return bool(self.session_cookie.strip())
+        """True quand un mode d'auth est configuré (cookie, ou identifiants)."""
+        return bool(self.session_cookie.strip()) or bool(self.username and self.password)
+
+    @property
+    def can_login(self) -> bool:
+        return bool(self.username and self.password)
 
     @property
     def headers(self) -> dict[str, str]:
@@ -488,13 +499,62 @@ def _looks_like_login(html: str) -> bool:
     return ("name=\"password\"" in low or "type=\"password\"" in low) and "dtofferte" not in low
 
 
+@dataclass
+class _HtmlForm:
+    action: str
+    inputs: dict[str, str]
+
+    @property
+    def has_password(self) -> bool:
+        return "password" in self.inputs or any(
+            k.lower() == "password" for k in self.inputs
+        )
+
+
+class _FormParser(HTMLParser):
+    """Extrait tous les <form> d'une page : action + champs <input name=value>.
+
+    Sert au login Keycloak (``#kc-form-login``) et à la page form_post OIDC
+    (formulaire auto-soumis vers offer.gallettigroup.com).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.forms: list[_HtmlForm] = []
+        self._cur: _HtmlForm | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        ad = {k: (v or "") for k, v in attrs}
+        if tag == "form":
+            self._cur = _HtmlForm(action=ad.get("action", ""), inputs={})
+        elif tag == "input" and self._cur is not None:
+            name = ad.get("name")
+            if name:
+                self._cur.inputs[name] = ad.get("value", "")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "form" and self._cur is not None:
+            self.forms.append(self._cur)
+            self._cur = None
+
+
+def _parse_forms(html: str) -> list[_HtmlForm]:
+    parser = _FormParser()
+    parser.feed(html)
+    # Keycloak peut ne pas fermer <form> proprement : récupérer un form ouvert
+    if parser._cur is not None:
+        parser.forms.append(parser._cur)
+    return parser.forms
+
+
 class GallettiSelectorClient:
-    """Client HTTP minimal pour le configurateur GALLETTI."""
+    """Client HTTP pour le configurateur GALLETTI (cookie ou login automatique)."""
 
     def __init__(self, config: GallettiConfig) -> None:
         self._config = config
+        self._session: httpx.Client | None = None
 
-    def _client(self) -> httpx.Client:
+    def _new_client(self) -> httpx.Client:
         return httpx.Client(
             base_url=self._config.base_url,
             headers=self._config.headers,
@@ -502,30 +562,83 @@ class GallettiSelectorClient:
             follow_redirects=True,
         )
 
+    def _login(self) -> httpx.Client:
+        """Se connecte via Keycloak (identifiant+mot de passe) et renvoie un client authentifié."""
+        client = self._new_client()
+        # 1. Page protégée -> redirige vers la page de login Keycloak
+        resp = client.get("/Gestione/Offerta", params={"tipoProgetto": "1"})
+        if "dtOfferte" in resp.text:
+            return client  # déjà authentifié
+        forms = _parse_forms(resp.text)
+        login_form = next((f for f in forms if f.has_password), None)
+        if login_form is None or not login_form.action:
+            raise GallettiAuthError(
+                "Page de login GALLETTI introuvable (flux Keycloak inattendu)."
+            )
+        # 2. POST identifiants
+        data = dict(login_form.inputs)
+        data["username"] = self._config.username
+        data["password"] = self._config.password
+        resp2 = client.post(login_form.action, data=data)
+        # 3. Page form_post OIDC -> POST des tokens vers offer.gallettigroup.com
+        post_forms = _parse_forms(resp2.text)
+        if post_forms and post_forms[0].action:
+            fp = post_forms[0]
+            client.post(fp.action, data=fp.inputs)
+        # 4. Vérifier que la session est établie
+        check = client.get("/Gestione/Offerta", params={"tipoProgetto": "1"})
+        if _looks_like_login(check.text):
+            raise GallettiAuthError(
+                "Échec du login GALLETTI : identifiant ou mot de passe incorrect ?"
+            )
+        return client
+
+    def _ensure_session(self) -> httpx.Client:
+        if self._session is None:
+            if self._config.can_login:
+                self._session = self._login()
+            else:
+                self._session = self._new_client()  # mode cookie
+        return self._session
+
+    def _reset_session(self) -> None:
+        if self._session is not None:
+            self._session.close()
+        self._session = None
+
     def _get_html(self, path: str, params: dict[str, str] | None = None) -> str:
         if not self._config.live:
             raise GallettiAuthError(
-                "Aucun cookie de session GALLETTI (GALLETTI_COOKIE) : "
-                "impossible d'interroger le configurateur."
+                "GALLETTI non configuré : fournissez GALLETTI_USER + GALLETTI_PASSWORD "
+                "(recommandé) ou GALLETTI_COOKIE."
             )
+        html = self._get_html_once(path, params)
+        if _looks_like_login(html) and self._config.can_login:
+            # session expirée -> on se reconnecte une fois
+            self._reset_session()
+            html = self._get_html_once(path, params)
+        if _looks_like_login(html):
+            raise GallettiAuthError(
+                f"Réponse de login reçue sur {path!r} : "
+                + (
+                    "échec de la reconnexion automatique (identifiants ?)."
+                    if self._config.can_login
+                    else "session expirée, renouvelle le cookie GALLETTI_COOKIE."
+                )
+            )
+        return html
+
+    def _get_html_once(self, path: str, params: dict[str, str] | None) -> str:
+        client = self._ensure_session()
         try:
-            with self._client() as client:
-                resp = client.get(path, params=params)
+            resp = client.get(path, params=params)
         except httpx.HTTPError as err:
             raise GallettiError(f"Erreur réseau GALLETTI sur {path!r}: {err}") from err
         if resp.status_code in (401, 403):
-            raise GallettiAuthError(
-                f"Accès refusé ({resp.status_code}) sur {path!r} : cookie expiré ?"
-            )
+            raise GallettiAuthError(f"Accès refusé ({resp.status_code}) sur {path!r}.")
         if resp.status_code >= 400:
             raise GallettiError(f"GALLETTI {resp.status_code} sur {path!r}.")
-        html = resp.text
-        if _looks_like_login(html):
-            raise GallettiAuthError(
-                f"Réponse de login reçue sur {path!r} : session expirée, "
-                "renouvelle le cookie GALLETTI_COOKIE."
-            )
-        return html
+        return resp.text
 
     def list_projects(self, *, tipo_progetto: int = 1) -> list[GallettiProject]:
         """Liste les projets (offerte) de l'onglet Gestione/Offerta."""
@@ -564,6 +677,8 @@ def make_client_from_env() -> GallettiSelectorClient:
     config = GallettiConfig(
         base_url=settings.galletti_base_url or DEFAULT_BASE_URL,
         session_cookie=settings.galletti_cookie,
+        username=settings.galletti_user,
+        password=settings.galletti_password,
         timeout_seconds=settings.galletti_timeout_seconds,
     )
     return GallettiSelectorClient(config)

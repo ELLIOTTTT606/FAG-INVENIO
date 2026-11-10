@@ -1,0 +1,47 @@
+CCTP - LOT CVC - EXEMPLE GENERIQUE (fictif, pour tests INVENIO)
+================================================================
+
+OBJET : Rénovation du système de production thermique d'un bâtiment tertiaire
+R+2 d'environ 1 200 m² (bureaux + salle de réunion), situé à Lyon (69).
+
+1. GENERALITES
+Le présent CCTP a pour objet la fourniture et la mise en œuvre d'une production
+d'eau glacée et d'eau chaude destinée au traitement d'air et aux ventilo-
+convecteurs du bâtiment. L'installation devra être réversible.
+
+2. CONDITIONS DE BASE
+- Conditions extérieures été : 35 °C / 40 % HR
+- Conditions extérieures hiver : -7 °C (base Lyon)
+- Conditions intérieures été : 24 °C / 50 % HR
+- Conditions intérieures hiver : 20 °C
+- Altitude du site : 170 m
+
+3. REGIMES D'EAU
+- Régime d'eau glacée (mode froid) : entrée 12 °C / sortie 7 °C
+- Régime d'eau chaude (mode chaud) : entrée 40 °C / sortie 45 °C
+- Eau glycolée : monoéthylène glycol 30 %
+
+4. BESOINS THERMIQUES
+- Puissance frigorifique requise : environ 50 kW au point de base
+- Puissance calorifique requise : environ 48 kW à -7 °C
+- EER minimal exigé : 2,5
+- SCOP minimal exigé : 3,5
+
+5. IMPLANTATION
+La machine sera installée en toiture-terrasse, sur plots anti-vibratiles. Le
+niveau de puissance acoustique devra respecter le voisinage (zone résidentielle
+à 10 m) : version silencieuse souhaitée. Encombrement maîtrisé, accès maintenance
+à prévoir.
+
+6. FLUIDE FRIGORIGENE
+Fluide à faible GWP imposé (R32 ou R454B).
+
+7. OPTIONS ET ACCESSOIRES DEMANDES
+- Pompe hydraulique double côté utilisation intégrée
+- Réservoir tampon
+- Kit hydraulique complet
+- Grille de protection anti-intrusion
+- Régulation communicante (Modbus)
+
+8. CERTIFICATION
+Les performances devront être certifiées Eurovent.

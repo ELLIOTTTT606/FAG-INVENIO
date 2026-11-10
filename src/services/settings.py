@@ -65,6 +65,18 @@ class Settings(BaseSettings):
 
         return bool(self.galletti_cookie) or bool(self.galletti_user and self.galletti_password)
 
+    # --- LLM agnostique (API OpenAI-compatible : Groq, Ollama, OpenAI…) ---
+    llm_base_url: str = Field(default="", alias="LLM_BASE_URL")
+    llm_api_key: str = Field(default="", alias="LLM_API_KEY")
+    llm_model: str = Field(default="", alias="LLM_MODEL")
+    llm_timeout_seconds: float = Field(default=60.0, alias="LLM_TIMEOUT")
+
+    @property
+    def llm_live(self) -> bool:
+        """True quand un fournisseur LLM est configuré."""
+
+        return bool(self.llm_base_url and self.llm_model)
+
     @property
     def baserow_live(self) -> bool:
         """True when Baserow is fully configured and should be hit live."""

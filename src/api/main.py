@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.api._static import mount_frontend
+from src.api.analyze_routes import router as analyze_router
 from src.api.galletti_routes import router as galletti_router
 from src.parser.docx_parser import parse_docx
 from src.parser.pdf_parser import parse_pdf
@@ -317,5 +318,6 @@ def options_for_machine(
 
 
 app.include_router(galletti_router)
+app.include_router(analyze_router)
 
 mount_frontend(app)

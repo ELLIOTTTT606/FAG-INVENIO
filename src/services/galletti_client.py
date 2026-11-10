@@ -827,19 +827,34 @@ class GallettiSelectorClient:
         )
         return parse_families_html(html)
 
-    def get_family_sizes(self, family: str) -> list[GallettiSize]:
-        """Toutes les tailles d'une famille (calcul à conditions standard)."""
+    def _family_calc_html(self, family: str) -> str:
         # 1. Charger le contexte de la famille
         self._get_html(
             "/Configuratore/Wizard/CalcoloPrestazioni",
             params={"famiglie": family, "idofferta": "0"},
         )
         # 2. Lancer le calcul avec les conditions standard -> tableau des tailles
-        html = self._post_html(
+        return self._post_html(
             "/Configuratore/Wizard/EseguiCalcoloPrestazioni",
             data=dict(_DEFAULT_CALC_CONDITIONS),
         )
-        return parse_sizes_html(html)
+
+    def get_family_sizes(self, family: str) -> list[GallettiSize]:
+        """Toutes les tailles d'une famille (calcul à conditions standard)."""
+        return parse_sizes_html(self._family_calc_html(family))
+
+    def debug_family_calc(self, family: str) -> dict[str, object]:
+        """Diagnostic : renvoie des infos sur la réponse brute du calcul."""
+        html = self._family_calc_html(family)
+        import re as _re
+
+        tables = _re.findall(r'<table[^>]*id="([^"]+)"', html)
+        return {
+            "length": len(html),
+            "table_ids": tables[:10],
+            "has_dtRisultati": "dtRisultatiCalcolo" in html,
+            "snippet": " ".join(_re.sub(r"<[^>]+>", " ", html).split())[:600],
+        }
 
 
 def make_client_from_env() -> GallettiSelectorClient:

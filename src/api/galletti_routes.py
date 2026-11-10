@@ -76,8 +76,10 @@ def list_families() -> dict[str, Any]:
     "/families/{family:path}/sizes",
     summary="Catalogue : toutes les tailles d'une famille (calcul standard)",
 )
-def family_sizes(family: str) -> dict[str, Any]:
+def family_sizes(family: str, debug: int = 0) -> dict[str, Any]:
     try:
+        if debug:
+            return {"family": family, "debug": _client().debug_family_calc(family)}
         sizes = _client().get_family_sizes(family)
     except GallettiAuthError as err:
         raise HTTPException(status_code=503, detail=str(err)) from err

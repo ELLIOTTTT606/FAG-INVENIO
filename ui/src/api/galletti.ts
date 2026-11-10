@@ -58,3 +58,17 @@ export async function getGallettiProject(
 ): Promise<{ id: number; articles: GallettiArticle[] }> {
   return getJson<{ id: number; articles: GallettiArticle[] }>(`/galletti/projects/${id}`)
 }
+
+/** URL de la fiche INVENIO d'un modèle d'un projet (HTML par défaut). */
+export function ficheUrl(
+  projectId: number,
+  article: GallettiArticle,
+  format: 'html' | 'pdf' = 'html',
+): string {
+  const params = new URLSearchParams({
+    family: article.family,
+    model: article.model,
+    format,
+  })
+  return `${BASE}/galletti/projects/${projectId}/fiche?${params.toString()}`
+}

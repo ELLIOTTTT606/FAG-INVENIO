@@ -185,16 +185,15 @@ def test_results_to_canonical_maps_key_figures() -> None:
     assert canon["family"] == "GAL|PLE HS"
 
     perf = canon["performance"]
-    assert perf["cooling"]["power_kw"] == 55.0
-    assert perf["cooling"]["efficiency"] == 2.60
-    assert perf["heating"]["power_kw"] == 48.6
-    assert perf["heating"]["efficiency"] == 2.21
+    assert perf["cooling"]["power_kW"] == 55.0
+    assert perf["cooling"]["eer"] == 2.60
+    assert perf["cooling"]["water_flow_lph"] == 9446.0
+    assert perf["heating"]["power_kW"] == 48.6
+    assert perf["heating"]["cop"] == 2.21
 
-    assert canon["hydraulics"]["cooling"]["water_flow_lh"] == 9446.0
-    assert canon["acoustic"]["lw_base_db"] == 81.0
+    assert canon["general"]["sound_power_lw_dBA"] == 81.0
     assert canon["general"]["refrigerant"] == "R454B"
     assert canon["general"]["gwp"] == 466.0
-    assert canon["norm"]["en14511"] == "Oui"
 
 
 def test_parse_results_empty_without_table() -> None:

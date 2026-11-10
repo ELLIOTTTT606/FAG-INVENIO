@@ -264,73 +264,87 @@ def _num(value: str | None) -> float | None:
 
 
 def results_to_canonical(
-    results: GallettiResults, *, family: str = "", size: str = ""
+    results: GallettiResults,
+    *,
+    family: str = "",
+    size: str = "",
+    type_: str = "HS",
 ) -> dict[str, object]:
-    """Mappe des résultats de calcul vers un fragment du payload canonique INVENIO.
+    """Mappe des résultats de calcul vers le payload canonique INVENIO.
 
-    Réutilise la même structure que ``empty_payload`` (conditions, performance,
-    hydraulics, acoustic, norm, general) afin que les données API et DOCX
-    convergent vers le même format de fiche.
+    Produit exactement les chemins attendus par le template de fiche
+    (``record.conditions.cooling.water_in_C``, ``record.performance.heating.cop``…),
+    afin que les données API et DOCX convergent vers le même format de fiche.
     """
     sec_in, sec_out = _SECTION_INPUT, _SECTION_OUTPUT
+    cd = "Common Data"
 
     def cond(group: str) -> dict[str, object]:
         return {
-            "water_in_c": _num(results.find("entrée eau", group=group, section=sec_in)),
-            "water_out_c": _num(results.find("sortie eau", group=group, section=sec_in)),
-            "glycol_pct": _num(results.find("Glycol", group=group, section=sec_in)),
-            "source_air_c": _num(results.find("Air exterieur", group=group, section=sec_in)),
-            "source_humidity_pct": _num(results.find("Humidité", group=group, section=sec_in)),
-            "load_pct": _num(results.find("Charge", group=group, section=sec_in)),
+            "water_in_C": _num(results.find("entrée eau", group=group, section=sec_in)),
+            "water_out_C": _num(results.find("sortie eau", group=group, section=sec_in)),
+            "air_temp_C": _num(results.find("Air exterieur", group=group, section=sec_in)),
+            "load_percent": _num(results.find("Charge", group=group, section=sec_in)),
         }
 
     def perf(group: str) -> dict[str, object]:
-        power_label = "refroidissement" if group == "Refroidissement" else "chauffage"
-        eff_label = "EER" if group == "Refroidissement" else "COP"
-        seasonal = "SEER" if group == "Refroidissement" else "SCOP"
-        return {
-            "power_kw": _num(
+        is_cool = group == "Refroidissement"
+        power_label = "refroidissement" if is_cool else "chauffage"
+        base: dict[str, object] = {
+            "power_kW": _num(
                 results.find(f"Puissance de {power_label} (", group=group, section=sec_out)
             ),
-            "absorbed_total_kw": _num(
+            "total_power_kW": _num(
                 results.find("Puissance absorbée totale (", group=group, section=sec_out)
             ),
-            "efficiency": _num(results.find(f"{eff_label} (", group=group, section=sec_out)),
-            "seasonal_efficiency": _num(results.find(seasonal, group=group, section=sec_out)),
-        }
-
-    def hydro(group: str) -> dict[str, object]:
-        return {
-            "water_flow_lh": _num(results.find("Débit d'eau", group=group, section=sec_out)),
-            "pressure_drop_kpa": _num(
+            "total_current_A": _num(
+                results.find("Courant absorbé total (", group=group, section=sec_out)
+            ),
+            "water_flow_lph": _num(results.find("Débit d'eau", group=group, section=sec_out)),
+            "pressure_drop_kPa": _num(
                 results.find("Perte de charge", group=group, section=sec_out)
             ),
         }
+        if is_cool:
+            base["eer"] = _num(results.find("EER (", group=group, section=sec_out))
+            base["seer"] = _num(results.find("SEER", group=group, section=sec_out))
+        else:
+            base["cop"] = _num(results.find("COP (", group=group, section=sec_out))
+            base["scop"] = _num(results.find("SCOP", group=group, section=sec_out))
+            base["seasonal_class"] = results.find(
+                "Seasonal Efficiency Class", group=group, section=sec_out
+            )
+        return base
 
-    cd = "Common Data"
     return {
-        "model": results.model,
         "family": family,
+        "model": results.model,
         "size": size,
+        "type": type_,
+        "designation_code": None,
         "conditions": {"cooling": cond("Refroidissement"), "heating": cond("Chauffage")},
         "performance": {"cooling": perf("Refroidissement"), "heating": perf("Chauffage")},
-        "hydraulics": {"cooling": hydro("Refroidissement"), "heating": hydro("Chauffage")},
-        "acoustic": {
-            "lw_base_db": _num(results.find("puissance acoustique Lw", group=cd, section=sec_out)),
-            "lp_base_db": _num(results.find("pression acoustique Lp", group=cd, section=sec_out)),
-            "lw_silent_db": _num(results.find("Lw (Version", group=cd, section=sec_out)),
-        },
-        "norm": {
-            "en14511": results.find("Calculs selon la norme", section=sec_in),
-            "en14511_version": results.find("UNI EN 14511 Version", section=sec_in),
-        },
         "general": {
             "refrigerant": results.find("Réfrigérant", group=cd, section=sec_out),
             "gwp": _num(results.find("GWP", group=cd, section=sec_out)),
-            "power_supply": results.find("Alimentation", group=cd, section=sec_out),
-            "compressors_circuits": results.find("Compresseurs/Circuits", group=cd, section=sec_out),
-            "max_current_fla_a": _num(results.find("Max. courant absorbé", group=cd, section=sec_out)),
+            "supply": results.find("Alimentation", group=cd, section=sec_out),
+            "max_current_A": _num(results.find("Max. courant absorbé", group=cd, section=sec_out)),
+            "starting_current_A": _num(
+                results.find("Courant de démarrage (LRA)", group=cd, section=sec_out)
+            ),
+            "sound_power_lw_dBA": _num(
+                results.find("puissance acoustique Lw", group=cd, section=sec_out)
+            ),
+            "sound_pressure_lp_dBA": _num(
+                results.find("pression acoustique Lp", group=cd, section=sec_out)
+            ),
+            "source_air_flow_m3h": _num(
+                results.find("Source Air Volumetric Flow", group=cd, section=sec_out)
+            ),
+            "weight_kg": None,
         },
+        "options": [],
+        "warnings": [],
     }
 
 

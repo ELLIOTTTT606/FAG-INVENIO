@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../api/client'
 import {
+  ficheUrl,
   getGallettiProject,
   listGallettiProjects,
   type GallettiArticle,
@@ -174,7 +175,7 @@ function ProjectRow({ project, open, articles, articlesError, onToggle }: RowPro
                   .map((a, i) => (
                     <li
                       key={`${a.model}-${i}`}
-                      className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-sm"
                     >
                       <span>
                         <span className="font-mono font-semibold">{a.model}</span>
@@ -185,7 +186,17 @@ function ProjectRow({ project, open, articles, articlesError, onToggle }: RowPro
                           </span>
                         )}
                       </span>
-                      <span className="text-ink-muted">{fmtPrice(a.price)}</span>
+                      <span className="flex items-center gap-3">
+                        <span className="text-ink-muted">{fmtPrice(a.price)}</span>
+                        <a
+                          href={ficheUrl(project.id, a)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                        >
+                          Générer la fiche
+                        </a>
+                      </span>
                     </li>
                   ))}
               </ul>

@@ -237,3 +237,39 @@ def test_parse_results_empty_without_table() -> None:
     res = parse_results_html("<html>pas de table</html>", model="X")
     assert res.rows == []
     assert res.find("quoi que ce soit") is None
+
+
+def test_parse_families_html() -> None:
+    from src.services.galletti_client import parse_families_html
+
+    html = """
+    <div class="panel-heading" data-family="GAL|PLE HS">
+      <div style="float: left;">PLE HS</div>
+    </div>
+    <div class="panel-heading" data-family="GAL|MPE-H">
+      <div style="float: left;">MPE H</div>
+    </div>
+    """
+    fams = parse_families_html(html)
+    assert len(fams) == 2
+    assert fams[0].code == "GAL|PLE HS"
+    assert fams[0].name == "PLE HS"
+    assert fams[1].code == "GAL|MPE-H"
+
+
+def test_parse_sizes_html() -> None:
+    from src.services.galletti_client import parse_sizes_html
+
+    html = """
+    <table id="dtRisultatiCalcolo"><tbody>
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>PLP037H</td><td>30.1</td><td>5165</td>
+          <td>11.94</td><td>2.52</td><td>37.1</td></tr>
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>PLP045H</td><td>35.8</td><td>6143</td>
+          <td>14.19</td><td>2.52</td><td>45.5</td></tr>
+    </tbody></table>
+    """
+    sizes = parse_sizes_html(html)
+    assert [s.model for s in sizes] == ["PLP037H", "PLP045H"]
+    assert sizes[0].cooling_power_kw == 30.1
+    assert sizes[0].eer == 2.52
+    assert sizes[0].heating_power_kw == 37.1

@@ -324,6 +324,31 @@ export default function Home() {
                 </svg>
               </Link>
             </Reveal>
+
+            {/* Catalogue produits */}
+            <Reveal delay={500}>
+              <Link
+                to="/catalog"
+                style={{
+                  color:          t.dim,
+                  fontSize:       14,
+                  textDecoration: 'none',
+                  display:        'flex',
+                  alignItems:     'center',
+                  gap:            8,
+                  width:          'fit-content',
+                  margin:         '14px auto 0',
+                  transition:     'color 0.2s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = t.text }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = t.dim }}
+              >
+                Catalogue produits
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </Reveal>
           </div>
         )}
       </main>

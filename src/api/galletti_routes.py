@@ -61,6 +61,31 @@ def galletti_status() -> dict[str, Any]:
     }
 
 
+@router.get("/families", summary="Catalogue : liste toutes les familles de produits")
+def list_families() -> dict[str, Any]:
+    try:
+        families = _client().list_families()
+    except GallettiAuthError as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+    except GallettiError as err:
+        raise HTTPException(status_code=502, detail=str(err)) from err
+    return {"families": [f.to_dict() for f in families]}
+
+
+@router.get(
+    "/families/{family:path}/sizes",
+    summary="Catalogue : toutes les tailles d'une famille (calcul standard)",
+)
+def family_sizes(family: str) -> dict[str, Any]:
+    try:
+        sizes = _client().get_family_sizes(family)
+    except GallettiAuthError as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+    except GallettiError as err:
+        raise HTTPException(status_code=502, detail=str(err)) from err
+    return {"family": family, "sizes": [s.to_dict() for s in sizes]}
+
+
 @router.get("/projects", summary="Liste les projets (offerte) du compte GALLETTI")
 def list_projects() -> dict[str, Any]:
     try:

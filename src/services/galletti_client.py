@@ -38,6 +38,33 @@ import httpx
 
 DEFAULT_BASE_URL = "https://offer.gallettigroup.com"
 
+# Conditions de calcul standard (point commercial) pour énumérer les tailles
+# d'une famille via EseguiCalcoloPrestazioni.
+_DEFAULT_CALC_CONDITIONS: dict[str, str] = {
+    "TipoLimite": "COMMERCIAL",
+    "iddatabox": "0",
+    "idofferta": "0",
+    "H2_Raffreddamento_H2_UserWaterTemperatureIn": "12.0",
+    "H2_Raffreddamento_H2_UserWaterTemperatureOut": "7.0",
+    "H2_Raffreddamento_H2_UserWaterGlycolPercentage": "0",
+    "H2_Raffreddamento_H2_SourceAirTemperature": "35.0",
+    "H2_Raffreddamento_H2_SourceAirRelativeHumidity": "40",
+    "H2_Raffreddamento_H2_LoadPercentage": "100",
+    "H2_Riscaldamento_H2_UserWaterTemperatureIn": "40.0",
+    "H2_Riscaldamento_H2_UserWaterTemperatureOut": "45.0",
+    "H2_Riscaldamento_H2_UserWaterGlycolPercentage": "0",
+    "H2_Riscaldamento_H2_SourceAirTemperature": "7.0",
+    "H2_Riscaldamento_H2_SourceAirRelativeHumidity": "87",
+    "H2_Riscaldamento_H2_LoadPercentage": "100",
+    "H2_GlycolInputs_H2_GlycolType": "H2_ETHYLENE",
+    "H2_SoundInputs_H2_Distance": "10.0",
+    "H2_SoundInputs_H2_Direction": "H2_D2",
+    "H2_AltitudeInputs_H2_Altitude": "0.0",
+    "H2_UNIEN14511Inputs_H2_UNIEN14511Enable": "H2_YES",
+    "H2_UNIEN14511Inputs_H2_UNIEN14511Version": "H2_UNIEN14511-2022",
+    "H2_UNIEN14511Inputs_H2_UNIEN14511UserPumpType": "H2_-",
+}
+
 # id interne du projet, extrait de onclick="readOnlyOfferta(306090);"
 _PROJECT_ID_RE = re.compile(r"readOnlyOfferta\((\d+)\)")
 
@@ -155,6 +182,89 @@ class GallettiProjectDetail:
     @property
     def machines(self) -> list[GallettiArticle]:
         return [a for a in self.articles if a.is_machine]
+
+
+# --- Catalogue : familles + tailles (étape A) ---
+
+_FAMILY_RE = re.compile(r'data-family="([^"]+)"')
+_FAMILY_NAME_RE = re.compile(
+    r'data-family="([^"]+)".*?float:\s*left;?\s*">\s*([^<]+?)\s*</div>', re.S
+)
+
+
+@dataclass(frozen=True)
+class GallettiFamily:
+    """Une famille de produits (gamme), ex. code 'GAL|PLE HS' nom 'PLE HS'."""
+
+    code: str
+    name: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"code": self.code, "name": self.name}
+
+
+@dataclass(frozen=True)
+class GallettiSize:
+    """Une taille d'un modèle avec ses perfs principales (au point de calcul)."""
+
+    model: str
+    cooling_power_kw: float | None = None
+    heating_power_kw: float | None = None
+    eer: float | None = None
+    cop: float | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "model": self.model,
+            "cooling_power_kw": self.cooling_power_kw,
+            "heating_power_kw": self.heating_power_kw,
+            "eer": self.eer,
+            "cop": self.cop,
+        }
+
+
+def parse_families_html(html: str) -> list[GallettiFamily]:
+    """Parse la page CaricaFamiglie en liste de familles (data-family + nom)."""
+    names: dict[str, str] = {}
+    for m in _FAMILY_NAME_RE.finditer(html):
+        names.setdefault(m.group(1), " ".join(m.group(2).split()))
+    families: list[GallettiFamily] = []
+    seen: set[str] = set()
+    for m in _FAMILY_RE.finditer(html):
+        code = m.group(1)
+        if code in seen:
+            continue
+        seen.add(code)
+        families.append(GallettiFamily(code=code, name=names.get(code, code.split("|")[-1])))
+    return families
+
+
+def parse_sizes_html(html: str) -> list[GallettiSize]:
+    """Parse le tableau dtRisultatiCalcolo (tailles d'une famille, après calcul)."""
+    tbl = re.search(r'<table[^>]*id="dtRisultatiCalcolo".*?</table>', html, re.S)
+    if not tbl:
+        return []
+    sizes: list[GallettiSize] = []
+    for tr in _TR_RE.findall(tbl.group(0)):
+        cells = [_clean_cell(c) for c in _CELL_RE.findall(tr)]
+        cells = [c for c in cells if c]
+        # Ligne de donnée : 1re cellule = code modèle (lettres+chiffres), puis nombres
+        if not cells:
+            continue
+        model = cells[0]
+        if not re.match(r"^[A-Z]{2,}[0-9]", model):
+            continue
+        nums = [_num(c) for c in cells[1:]]
+        sizes.append(
+            GallettiSize(
+                model=model,
+                cooling_power_kw=nums[0] if len(nums) > 0 else None,
+                eer=nums[3] if len(nums) > 3 else None,
+                heating_power_kw=nums[4] if len(nums) > 4 else None,
+                cop=nums[7] if len(nums) > 7 else None,
+            )
+        )
+    return sizes
 
 
 def _split_option_codes(raw: str | None) -> list[str]:
@@ -613,16 +723,28 @@ class GallettiSelectorClient:
         self._session = None
 
     def _get_html(self, path: str, params: dict[str, str] | None = None) -> str:
+        return self._request_html("GET", path, params=params)
+
+    def _post_html(self, path: str, data: dict[str, str]) -> str:
+        return self._request_html("POST", path, data=data)
+
+    def _request_html(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, str] | None = None,
+        data: dict[str, str] | None = None,
+    ) -> str:
         if not self._config.live:
             raise GallettiAuthError(
                 "GALLETTI non configuré : fournissez GALLETTI_USER + GALLETTI_PASSWORD "
                 "(recommandé) ou GALLETTI_COOKIE."
             )
-        html = self._get_html_once(path, params)
+        html = self._request_once(method, path, params, data)
         if _looks_like_login(html) and self._config.can_login:
-            # session expirée -> on se reconnecte une fois
             self._reset_session()
-            html = self._get_html_once(path, params)
+            html = self._request_once(method, path, params, data)
         if _looks_like_login(html):
             raise GallettiAuthError(
                 f"Réponse de login reçue sur {path!r} : "
@@ -634,10 +756,19 @@ class GallettiSelectorClient:
             )
         return html
 
-    def _get_html_once(self, path: str, params: dict[str, str] | None) -> str:
+    def _request_once(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, str] | None,
+        data: dict[str, str] | None,
+    ) -> str:
         client = self._ensure_session()
         try:
-            resp = client.get(path, params=params)
+            if method == "POST":
+                resp = client.post(path, data=data)
+            else:
+                resp = client.get(path, params=params)
         except httpx.HTTPError as err:
             raise GallettiError(f"Erreur réseau GALLETTI sur {path!r}: {err}") from err
         if resp.status_code in (401, 403):
@@ -687,6 +818,28 @@ class GallettiSelectorClient:
             params["idarticolo"] = str(id_articolo)
         html = self._get_html("/Configuratore/Wizard/RisultatiCalcolo", params=params)
         return parse_results_html(html, model=model)
+
+    def list_families(self) -> list[GallettiFamily]:
+        """Liste toutes les familles de produits du configurateur."""
+        html = self._post_html(
+            "/Configuratore/Wizard/CaricaFamiglie",
+            data={f"filtro{i}": "0" for i in range(1, 6)} | {"idOfferta": "0"},
+        )
+        return parse_families_html(html)
+
+    def get_family_sizes(self, family: str) -> list[GallettiSize]:
+        """Toutes les tailles d'une famille (calcul à conditions standard)."""
+        # 1. Charger le contexte de la famille
+        self._get_html(
+            "/Configuratore/Wizard/CalcoloPrestazioni",
+            params={"famiglie": family, "idofferta": "0"},
+        )
+        # 2. Lancer le calcul avec les conditions standard -> tableau des tailles
+        html = self._post_html(
+            "/Configuratore/Wizard/EseguiCalcoloPrestazioni",
+            data=dict(_DEFAULT_CALC_CONDITIONS),
+        )
+        return parse_sizes_html(html)
 
 
 def make_client_from_env() -> GallettiSelectorClient:

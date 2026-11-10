@@ -41,9 +41,23 @@ def _client() -> GallettiSelectorClient:
 @router.get("/status", summary="GALLETTI connectivity diagnostic for the UI badge")
 def galletti_status() -> dict[str, Any]:
     settings = get_settings()
+    has_cookie = bool(settings.galletti_cookie)
+    has_user = bool(settings.galletti_user)
+    has_password = bool(settings.galletti_password)
+    if has_user and has_password:
+        mode = "login"
+    elif has_cookie:
+        mode = "cookie"
+    else:
+        mode = "none"
     return {
         "configured": settings.galletti_live,
         "base_url": settings.galletti_base_url,
+        # Diagnostic (booléens seulement, aucune valeur de secret exposée)
+        "mode": mode,
+        "has_cookie": has_cookie,
+        "has_user": has_user,
+        "has_password": has_password,
     }
 
 

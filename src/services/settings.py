@@ -50,6 +50,19 @@ class Settings(BaseSettings):
         default=0, alias="BASEROW_TABLE_DESIGNATION_DECODER"
     )
 
+    # --- GALLETTI Quality Selector (configurateur offer.gallettigroup.com) ---
+    galletti_base_url: str = Field(
+        default="https://offer.gallettigroup.com", alias="GALLETTI_BASE_URL"
+    )
+    galletti_cookie: str = Field(default="", alias="GALLETTI_COOKIE")
+    galletti_timeout_seconds: float = Field(default=30.0, alias="GALLETTI_TIMEOUT")
+
+    @property
+    def galletti_live(self) -> bool:
+        """True quand un cookie de session GALLETTI est configuré."""
+
+        return bool(self.galletti_cookie)
+
     @property
     def baserow_live(self) -> bool:
         """True when Baserow is fully configured and should be hit live."""

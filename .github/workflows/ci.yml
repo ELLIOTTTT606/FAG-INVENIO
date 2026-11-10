@@ -78,7 +78,11 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned to 24.04: ubuntu-latest moved to 26.04, which Playwright's
+    # `install --with-deps` does not support yet ("Playwright does not
+    # support chromium on ubuntu26.04-x64"). Revert to ubuntu-latest once
+    # Playwright ships 26.04 support.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:

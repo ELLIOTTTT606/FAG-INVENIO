@@ -834,12 +834,21 @@ class GallettiSelectorClient:
         )
         return parse_families_html(html)
 
-    def _family_calc_html(self, family: str) -> str:
-        # 1. Charger le contexte de la famille
+    def _family_calc_html(self, family: str, *, _ctx: dict[str, object] | None = None) -> str:
+        # 0. Initialiser le configurateur (macrocatégorie CHILLER)
         self._get_html(
+            "/Configuratore/Wizard/SelezionaFamiglie",
+            params={"idMacrocategoria": "2", "refDLL": "CHILLER"},
+        )
+        # 1. Charger le contexte de la famille
+        ctx_html = self._get_html(
             "/Configuratore/Wizard/CalcoloPrestazioni",
             params={"famiglie": family, "idofferta": "0"},
         )
+        if _ctx is not None:
+            _ctx["calcolo_len"] = len(ctx_html)
+            _ctx["calcolo_has_H2"] = "H2_Raffreddamento" in ctx_html
+            _ctx["calcolo_mentions_family"] = family.split("|")[-1].split()[0] in ctx_html
         # 2. Lancer le calcul. GALLETTI lit la famille depuis l'en-tête Referer
         #    (page CalcoloPrestazioni?famiglie=...), d'où son envoi explicite.
         referer = (
@@ -859,15 +868,17 @@ class GallettiSelectorClient:
 
     def debug_family_calc(self, family: str) -> dict[str, object]:
         """Diagnostic : renvoie des infos sur la réponse brute du calcul."""
-        html = self._family_calc_html(family)
         import re as _re
 
+        ctx: dict[str, object] = {}
+        html = self._family_calc_html(family, _ctx=ctx)
         tables = _re.findall(r'<table[^>]*id="([^"]+)"', html)
         return {
             "length": len(html),
             "table_ids": tables[:10],
             "has_dtRisultati": "dtRisultatiCalcolo" in html,
-            "snippet": " ".join(_re.sub(r"<[^>]+>", " ", html).split())[:600],
+            "snippet": " ".join(_re.sub(r"<[^>]+>", " ", html).split())[:400],
+            "context": ctx,
         }
 
 

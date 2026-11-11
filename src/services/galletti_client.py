@@ -725,8 +725,13 @@ class GallettiSelectorClient:
     def _get_html(self, path: str, params: dict[str, str] | None = None) -> str:
         return self._request_html("GET", path, params=params)
 
-    def _post_html(self, path: str, data: dict[str, str]) -> str:
-        return self._request_html("POST", path, data=data)
+    def _post_html(
+        self,
+        path: str,
+        data: dict[str, str],
+        headers: dict[str, str] | None = None,
+    ) -> str:
+        return self._request_html("POST", path, data=data, headers=headers)
 
     def _request_html(
         self,
@@ -735,16 +740,17 @@ class GallettiSelectorClient:
         *,
         params: dict[str, str] | None = None,
         data: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> str:
         if not self._config.live:
             raise GallettiAuthError(
                 "GALLETTI non configuré : fournissez GALLETTI_USER + GALLETTI_PASSWORD "
                 "(recommandé) ou GALLETTI_COOKIE."
             )
-        html = self._request_once(method, path, params, data)
+        html = self._request_once(method, path, params, data, headers)
         if _looks_like_login(html) and self._config.can_login:
             self._reset_session()
-            html = self._request_once(method, path, params, data)
+            html = self._request_once(method, path, params, data, headers)
         if _looks_like_login(html):
             raise GallettiAuthError(
                 f"Réponse de login reçue sur {path!r} : "
@@ -762,11 +768,12 @@ class GallettiSelectorClient:
         path: str,
         params: dict[str, str] | None,
         data: dict[str, str] | None,
+        headers: dict[str, str] | None = None,
     ) -> str:
         client = self._ensure_session()
         try:
             if method == "POST":
-                resp = client.post(path, data=data)
+                resp = client.post(path, data=data, headers=headers)
             else:
                 resp = client.get(path, params=params)
         except httpx.HTTPError as err:
@@ -833,10 +840,17 @@ class GallettiSelectorClient:
             "/Configuratore/Wizard/CalcoloPrestazioni",
             params={"famiglie": family, "idofferta": "0"},
         )
-        # 2. Lancer le calcul avec les conditions standard -> tableau des tailles
+        # 2. Lancer le calcul. GALLETTI lit la famille depuis l'en-tête Referer
+        #    (page CalcoloPrestazioni?famiglie=...), d'où son envoi explicite.
+        referer = (
+            f"{self._config.base_url}/Configuratore/Wizard/CalcoloPrestazioni"
+            f"?famiglie={family}&idofferta=0"
+        )
+        data = {"FamigliaModello": "", "JQueryFamigliaModello": "", **_DEFAULT_CALC_CONDITIONS}
         return self._post_html(
             "/Configuratore/Wizard/EseguiCalcoloPrestazioni",
-            data=dict(_DEFAULT_CALC_CONDITIONS),
+            data=data,
+            headers={"Referer": referer},
         )
 
     def get_family_sizes(self, family: str) -> list[GallettiSize]:

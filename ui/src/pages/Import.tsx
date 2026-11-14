@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { ApiError, parseFile } from '../api/client'
 import type { ParseResponse } from '../api/types'
 import { Dropzone } from '../components/Dropzone'
+import { LoaderStage } from '../components/LoaderStage'
 import { ExtractionSummary } from '../components/ExtractionSummary'
+import { withViewTransition } from '../lib/motion'
 import { rememberImport } from '../lib/sessionContext'
 
 type Status =
@@ -20,17 +22,18 @@ export default function Import() {
     try {
       const result = await parseFile(file)
       rememberImport(result.data)
-      setStatus({ kind: 'ready', filename: file.name, result })
+      // The drop card morphs into the fiche header.
+      withViewTransition(() => setStatus({ kind: 'ready', filename: file.name, result }))
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Erreur réseau lors du parsing.'
       setStatus({ kind: 'error', filename: file.name, message })
     }
   }, [])
 
-  const reset = () => setStatus({ kind: 'idle' })
+  const reset = () => withViewTransition(() => setStatus({ kind: 'idle' }))
 
   return (
-    <section className="space-y-10">
+    <section className="stagger space-y-10">
       <div>
         <p className="text-sm uppercase tracking-widest text-accent">Étape 1 · Import</p>
         <h1 className="mt-2 text-3xl font-semibold md:text-4xl">Déposez votre fiche GALLETTI</h1>
@@ -41,18 +44,20 @@ export default function Import() {
         </p>
       </div>
 
-      <Dropzone disabled={status.kind === 'parsing'} onFile={handleFile} />
-
-      {status.kind === 'parsing' ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className="text-sm text-ink-muted"
-          data-testid="import-status"
-        >
-          Extraction en cours pour <strong>{status.filename}</strong>…
-        </p>
-      ) : null}
+      {status.kind === 'ready' ? null : (
+        <div className="fiche-card rounded-3xl bg-white/70 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_8px_24px_-12px_rgb(0_0_0/0.1)] backdrop-blur">
+          {status.kind === 'parsing' ? (
+            <div data-testid="import-status">
+              <LoaderStage
+                label={`Extraction en cours pour ${status.filename}`}
+                className="min-h-[220px] !bg-transparent"
+              />
+            </div>
+          ) : (
+            <Dropzone onFile={handleFile} />
+          )}
+        </div>
+      )}
 
       {status.kind === 'error' ? (
         <div
@@ -72,10 +77,19 @@ export default function Import() {
       ) : null}
 
       {status.kind === 'ready' ? (
-        <>
+        <div className="stagger space-y-10">
           <ExtractionSummary
             record={status.result.data}
             warnings={status.result.warnings}
+            action={
+              <button
+                type="button"
+                onClick={reset}
+                className="rounded-full border border-ink-muted/30 px-4 py-2 text-xs font-medium hover:border-accent hover:text-accent"
+              >
+                Importer une autre fiche
+              </button>
+            }
           />
           <div className="flex flex-wrap justify-end gap-3">
             <Link
@@ -91,7 +105,7 @@ export default function Import() {
               Générer la fiche →
             </Link>
           </div>
-        </>
+        </div>
       ) : null}
     </section>
   )

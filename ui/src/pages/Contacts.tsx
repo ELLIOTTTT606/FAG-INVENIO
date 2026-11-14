@@ -5,6 +5,7 @@ import { ClientSearch } from '../components/ClientSearch'
 import { ContactCard } from '../components/ContactCard'
 import { DepartmentPicker } from '../components/DepartmentPicker'
 import { FranceMap } from '../components/FranceMap'
+import { LoaderStage } from '../components/LoaderStage'
 import { NewClientModal } from '../components/NewClientModal'
 import { findDepartment } from '../data/departments'
 import { rememberContacts } from '../lib/sessionContext'
@@ -69,7 +70,7 @@ export default function Contacts() {
     : 'Sélectionnez un département'
 
   return (
-    <section className="space-y-10">
+    <section className="stagger space-y-10">
       <div>
         <p className="text-sm uppercase tracking-widest text-accent">Étape 2 · Contacts</p>
         <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
@@ -133,9 +134,7 @@ export default function Contacts() {
           </header>
 
           {status === 'loading' ? (
-            <p role="status" className="text-sm text-ink-muted">
-              Chargement des contacts…
-            </p>
+            <LoaderStage label="Chargement des contacts" className="min-h-[240px]" />
           ) : null}
           {status === 'error' ? (
             <p role="alert" className="text-sm text-danger">
@@ -144,7 +143,7 @@ export default function Contacts() {
           ) : null}
 
           {contacts ? (
-            <div className="space-y-4">
+            <div className="stagger space-y-4">
               <ContactCard role="TCI" contact={contacts.tci} />
               <ContactCard role="TCS" contact={contacts.tcs} />
               <ContactCard role="Solution Habitat" contact={contacts.solution} />

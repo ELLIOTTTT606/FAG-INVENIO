@@ -14,20 +14,28 @@ test.describe('capture UI screenshots', () => {
   })
 
   test('captures every page of the app', async ({ page }) => {
+    // 0. Loading indicator (bare showcase route)
+    await page.goto('/loader')
+    await expect(page.getByTestId('globe-loader')).toBeVisible()
+    await page.waitForTimeout(1500)
+    await page.screenshot({ path: `${SHOTS}/00-loader.png` })
+
     // 1. Home
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/01-home.png`, fullPage: true })
 
     // 2. Import (empty)
     await page.goto('/import')
     await expect(page.getByRole('button', { name: /déposer une fiche/i })).toBeVisible()
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/02-import-empty.png`, fullPage: true })
 
     // 3. Import (after parsing the DOCX)
     await page.locator('input[data-testid="dropzone-input"]').setInputFiles(SAMPLE_DOCX)
     await expect(page.getByRole('heading', { name: /PLP · 052 · HS/ })).toBeVisible({ timeout: 15_000 })
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/03-import-summary.png`, fullPage: true })
 
     // 4. Options (catalog loaded + a few selected via pre-checking)
@@ -38,7 +46,7 @@ test.describe('capture UI screenshots', () => {
     const checkboxes = page.locator('input[type="checkbox"]')
     const first = await checkboxes.first()
     await first.check()
-    await page.waitForTimeout(150)
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/04-options.png`, fullPage: true })
 
     // 5. Contacts (pick department 69, open SVG map highlight)
@@ -46,7 +54,7 @@ test.describe('capture UI screenshots', () => {
     await expect(page.getByTestId('france-map')).toBeVisible()
     await page.getByTestId('france-map-69').click()
     await expect(page.getByRole('heading', { name: /69 · Rhône/ })).toBeVisible()
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/05-contacts.png`, fullPage: true })
 
     // 6. New-client modal open
@@ -60,7 +68,7 @@ test.describe('capture UI screenshots', () => {
     // 7. Generate (preview iframe)
     await page.goto('/generate')
     await expect(page.getByTestId('preview-frame')).toBeVisible({ timeout: 15_000 })
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1200)
     await page.screenshot({ path: `${SHOTS}/07-generate-preview.png`, fullPage: true })
   })
 })

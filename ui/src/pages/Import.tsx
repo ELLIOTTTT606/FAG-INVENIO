@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ApiError, parseFile } from '../api/client'
 import type { ParseResponse } from '../api/types'
 import { Dropzone } from '../components/Dropzone'
+import { LoaderStage } from '../components/LoaderStage'
 import { ExtractionSummary } from '../components/ExtractionSummary'
 import { rememberImport } from '../lib/sessionContext'
 
@@ -30,7 +31,7 @@ export default function Import() {
   const reset = () => setStatus({ kind: 'idle' })
 
   return (
-    <section className="space-y-10">
+    <section className="stagger space-y-10">
       <div>
         <p className="text-sm uppercase tracking-widest text-accent">Étape 1 · Import</p>
         <h1 className="mt-2 text-3xl font-semibold md:text-4xl">Déposez votre fiche GALLETTI</h1>
@@ -44,14 +45,9 @@ export default function Import() {
       <Dropzone disabled={status.kind === 'parsing'} onFile={handleFile} />
 
       {status.kind === 'parsing' ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className="text-sm text-ink-muted"
-          data-testid="import-status"
-        >
-          Extraction en cours pour <strong>{status.filename}</strong>…
-        </p>
+        <div data-testid="import-status">
+          <LoaderStage label={`Extraction en cours pour ${status.filename}`} />
+        </div>
       ) : null}
 
       {status.kind === 'error' ? (
@@ -72,7 +68,7 @@ export default function Import() {
       ) : null}
 
       {status.kind === 'ready' ? (
-        <>
+        <div className="stagger space-y-10">
           <ExtractionSummary
             record={status.result.data}
             warnings={status.result.warnings}
@@ -91,7 +87,7 @@ export default function Import() {
               Générer la fiche →
             </Link>
           </div>
-        </>
+        </div>
       ) : null}
     </section>
   )

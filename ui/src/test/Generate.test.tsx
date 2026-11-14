@@ -93,7 +93,7 @@ describe('Generate page', () => {
     expect(revokeObjectURL).toHaveBeenCalledTimes(1)
   })
 
-  it('shows a 503 message when the PDF engine is unavailable', async () => {
+  it('falls back to printing the preview when the PDF engine is unavailable', async () => {
     rememberImport(pacRecord)
 
     const fetchMock = vi
@@ -103,11 +103,31 @@ describe('Generate page', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     renderPage()
+    const frame = (await waitFor(() => screen.getByTestId('preview-frame'))) as HTMLIFrameElement
+    const print = vi.fn()
+    const focus = vi.fn()
+    Object.defineProperty(frame, 'contentWindow', { value: { print, focus }, configurable: true })
+
+    fireEvent.click(screen.getByTestId('download-pdf'))
+
+    await waitFor(() => expect(print).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('print-notice')).toHaveTextContent(/Enregistrer au format PDF/i)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('reports other PDF failures as an error', async () => {
+    rememberImport(pacRecord)
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(PREVIEW_HTML, { status: 200 }))
+      .mockResolvedValueOnce(new Response('boom', { status: 500 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPage()
     await waitFor(() => screen.getByTestId('preview-frame'))
     fireEvent.click(screen.getByTestId('download-pdf'))
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/WeasyPrint/i),
-    )
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/boom/i))
   })
 })

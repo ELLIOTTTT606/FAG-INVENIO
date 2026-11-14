@@ -158,6 +158,21 @@ def test_render_pdf_raises_when_weasyprint_missing(monkeypatch: pytest.MonkeyPat
         render_pdf(GenerationContext(record=_record()))
 
 
+def test_render_pdf_raises_when_system_libraries_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_import = builtins.__import__
+
+    def fake_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "weasyprint":
+            raise OSError("cannot load library 'libpango-1.0-0'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(PdfEngineUnavailableError):
+        render_pdf(GenerationContext(record=_record()))
+
+
 _TINY_PNG_DATA_URL = (
     "data:image/png;base64,"
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIA"

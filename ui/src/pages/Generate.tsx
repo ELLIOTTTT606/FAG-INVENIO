@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import type { DepartmentContacts } from '../api/contacts'
@@ -25,6 +25,8 @@ export default function Generate() {
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [plans, setPlans] = useState<PlanAttachment[]>([])
+  const [notice, setNotice] = useState<string | null>(null)
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
 
   const importContext = useMemo(() => readImport(), [])
   const contacts = useMemo(() => readContacts<DepartmentContacts>(), [])
@@ -67,6 +69,7 @@ export default function Generate() {
     if (!request) return
     setDownloading(true)
     setError(null)
+    setNotice(null)
     try {
       const blob = await fetchPdfBlob(request)
       const url = URL.createObjectURL(blob)
@@ -78,8 +81,19 @@ export default function Generate() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Erreur de génération PDF.'
-      setError(message)
+      const printable = frameRef.current?.contentWindow
+      if (err instanceof ApiError && err.status === 503 && printable) {
+        // The server has no PDF engine (e.g. serverless hosting): let the
+        // browser print the very same fiche instead.
+        setNotice(
+          "Ce serveur ne peut pas produire le PDF lui-même. La fenêtre d'impression s'ouvre : choisissez « Enregistrer au format PDF ».",
+        )
+        printable.focus()
+        printable.print()
+      } else {
+        const message = err instanceof ApiError ? err.message : 'Erreur de génération PDF.'
+        setError(message)
+      }
     } finally {
       setDownloading(false)
     }
@@ -136,6 +150,16 @@ export default function Generate() {
         <LoaderStage label="Construction de l'aperçu" className="min-h-[420px]" />
       ) : null}
 
+      {notice ? (
+        <div
+          role="status"
+          className="rounded-2xl border border-accent/30 bg-accent-subtle/40 p-4 text-sm"
+          data-testid="print-notice"
+        >
+          {notice}
+        </div>
+      ) : null}
+
       {error ? (
         <div role="alert" className="rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
           {error}
@@ -144,6 +168,7 @@ export default function Generate() {
 
       {previewHtml ? (
         <iframe
+          ref={frameRef}
           title="Aperçu fiche INVENIO"
           srcDoc={previewHtml}
           className="fade-in h-[80vh] w-full rounded-2xl border border-ink-muted/15 bg-white"

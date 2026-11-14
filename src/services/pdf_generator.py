@@ -150,9 +150,13 @@ def render_pdf(context: GenerationContext) -> bytes:
 
     try:
         from weasyprint import HTML
-    except ImportError as err:  # pragma: no cover - environment-dependent
+    except (ImportError, OSError) as err:  # pragma: no cover - environment-dependent
+        # ImportError: the package is absent. OSError: it is installed but its
+        # system libraries (Pango, GObject) cannot be loaded, as on serverless
+        # hosts.
         raise PdfEngineUnavailableError(
-            "WeasyPrint is not installed. Run `pip install -e .[pdf]`."
+            "WeasyPrint is unavailable: not installed, or its system libraries "
+            "(Pango) are missing on this host."
         ) from err
 
     html = render_html(context)

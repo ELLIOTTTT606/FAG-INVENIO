@@ -1,14 +1,49 @@
 {
+  "framework": null,
   "buildCommand": "cd ui && npm install && npm run build",
   "outputDirectory": "ui/dist",
   "rewrites": [
-    { "source": "/health", "destination": "/api/index" },
-    { "source": "/admin/:path*", "destination": "/api/index" },
-    { "source": "/contacts/:path*", "destination": "/api/index" },
-    { "source": "/options", "destination": "/api/index" },
-    { "source": "/clients/:path*", "destination": "/api/index" },
-    { "source": "/parse/:path*", "destination": "/api/index" },
-    { "source": "/generate/:path*", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/health",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/contacts/department/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/options",
+      "has": [
+        {
+          "type": "query",
+          "key": "model"
+        }
+      ],
+      "destination": "/api/index"
+    },
+    {
+      "source": "/clients",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/clients/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/parse/:path*",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/generate/:path+",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

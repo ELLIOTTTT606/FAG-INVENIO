@@ -8,8 +8,10 @@ import {
   type CSSProperties,
 } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, type Location } from 'react-router-dom'
+import { AirflowBackground } from './components/AirflowBackground'
 import { BaserowBadge } from './components/BaserowBadge'
 import { LoaderStage } from './components/LoaderStage'
+import { prefersReducedMotion } from './lib/motion'
 
 const Contacts = lazy(() => import('./pages/Contacts'))
 const Generate = lazy(() => import('./pages/Generate'))
@@ -27,13 +29,6 @@ const NAV = [
 ] as const
 
 const EXIT_MS = 180
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window.matchMedia !== 'function' ||
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  )
-}
 
 /**
  * Keeps the outgoing page on screen while it fades out, then swaps in the
@@ -65,6 +60,7 @@ export default function App() {
 
   return (
     <div className="min-h-full">
+      <AirflowBackground />
       <Header />
       <main className="mx-auto max-w-page px-6 py-12 md:px-20">
         <div key={shown.pathname} className={leaving ? 'page-exit' : 'page-enter'}>

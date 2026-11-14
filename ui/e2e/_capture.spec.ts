@@ -35,7 +35,7 @@ test.describe('capture UI screenshots', () => {
     // 3. Import (after parsing the DOCX)
     await page.locator('input[data-testid="dropzone-input"]').setInputFiles(SAMPLE_DOCX)
     await expect(page.getByRole('heading', { name: /PLP · 052 · HS/ })).toBeVisible({ timeout: 15_000 })
-    await page.waitForTimeout(1200)
+    await page.waitForTimeout(2200)
     await page.screenshot({ path: `${SHOTS}/03-import-summary.png`, fullPage: true })
 
     // 4. Options (catalog loaded + a few selected via pre-checking)

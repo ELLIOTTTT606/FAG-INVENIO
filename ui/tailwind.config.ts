@@ -8,21 +8,24 @@ const config: Config = {
       colors: {
         // Tokens from `Descriptif DESIGN.docx` (light + dark)
         // Apple-like neutrals: off-white canvas, white sheets, near-black ink.
-        canvas: '#F5F5F7',
+        canvas: '#F4F5F7',
+        // Flux: colour only ever means cooling (cold) or heating (warm).
+        cold: '#2F7DF6',
+        warm: '#FF7A3D',
         surface: {
           light: '#FFFFFF',
           dark: '#0B1220',
           deep: '#1B2A5A',
         },
         ink: {
-          light: '#1D1D1F',
+          light: '#14161A',
           dark: '#F8FAFC',
-          muted: '#6E6E73',
+          muted: '#6A6F78',
         },
         accent: {
-          DEFAULT: '#0071E3',
-          hover: '#0077ED',
-          subtle: '#E8F1FC',
+          DEFAULT: '#2F7DF6',
+          hover: '#1F6BE0',
+          subtle: '#E6EFFE',
         },
         warn: '#F59E0B',
         success: '#10B981',
@@ -38,16 +41,8 @@ const config: Config = {
         '400': '400ms',
       },
       fontFamily: {
-        sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          '"SF Pro Display"',
-          '"SF Pro Text"',
-          '"Helvetica Neue"',
-          'Helvetica',
-          'Arial',
-          'sans-serif',
-        ],
+        sans: ['"Instrument Sans Variable"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['"Archivo Variable"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
       },
     },
   },

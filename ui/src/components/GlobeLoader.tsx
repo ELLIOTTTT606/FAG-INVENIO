@@ -14,8 +14,10 @@ interface WorldShapes {
   borders: GeoPermissibleObjects
 }
 
-const INK = '#1D1D1F'
-const PAPER = '#F5F5F7'
+const INK = '#14161A'
+const PAPER = '#F4F5F7'
+/** The whirl is air: it takes the cooling colour of the app. */
+const AIR = '#2F7DF6'
 
 /** Degrees of longitude travelled per second. */
 const SPIN_SPEED = 32
@@ -66,7 +68,7 @@ function drawWhirl(ctx: CanvasRenderingContext2D, half: number, seconds: number)
       const strength = 1 - i / SEGMENTS
       ctx.beginPath()
       ctx.arc(half, half, radius, Math.min(from, to), Math.max(from, to))
-      ctx.strokeStyle = INK
+      ctx.strokeStyle = AIR
       ctx.globalAlpha = 0.85 * strength * strength
       ctx.lineWidth = streak.width * (0.35 + 0.65 * strength)
       ctx.stroke()
@@ -80,7 +82,7 @@ function drawWhirl(ctx: CanvasRenderingContext2D, half: number, seconds: number)
       0,
       Math.PI * 2,
     )
-    ctx.fillStyle = INK
+    ctx.fillStyle = AIR
     ctx.fill()
   }
   ctx.globalAlpha = 1

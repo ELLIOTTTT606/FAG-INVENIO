@@ -5,6 +5,7 @@ import type { ParseResponse } from '../api/types'
 import { Dropzone } from '../components/Dropzone'
 import { LoaderStage } from '../components/LoaderStage'
 import { ExtractionSummary } from '../components/ExtractionSummary'
+import { withViewTransition } from '../lib/motion'
 import { rememberImport } from '../lib/sessionContext'
 
 type Status =
@@ -21,14 +22,15 @@ export default function Import() {
     try {
       const result = await parseFile(file)
       rememberImport(result.data)
-      setStatus({ kind: 'ready', filename: file.name, result })
+      // The drop card morphs into the fiche header.
+      withViewTransition(() => setStatus({ kind: 'ready', filename: file.name, result }))
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Erreur réseau lors du parsing.'
       setStatus({ kind: 'error', filename: file.name, message })
     }
   }, [])
 
-  const reset = () => setStatus({ kind: 'idle' })
+  const reset = () => withViewTransition(() => setStatus({ kind: 'idle' }))
 
   return (
     <section className="stagger space-y-10">
@@ -42,13 +44,20 @@ export default function Import() {
         </p>
       </div>
 
-      <Dropzone disabled={status.kind === 'parsing'} onFile={handleFile} />
-
-      {status.kind === 'parsing' ? (
-        <div data-testid="import-status">
-          <LoaderStage label={`Extraction en cours pour ${status.filename}`} />
+      {status.kind === 'ready' ? null : (
+        <div className="fiche-card rounded-3xl bg-white/70 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_8px_24px_-12px_rgb(0_0_0/0.1)] backdrop-blur">
+          {status.kind === 'parsing' ? (
+            <div data-testid="import-status">
+              <LoaderStage
+                label={`Extraction en cours pour ${status.filename}`}
+                className="min-h-[220px] !bg-transparent"
+              />
+            </div>
+          ) : (
+            <Dropzone onFile={handleFile} />
+          )}
         </div>
-      ) : null}
+      )}
 
       {status.kind === 'error' ? (
         <div
@@ -72,6 +81,15 @@ export default function Import() {
           <ExtractionSummary
             record={status.result.data}
             warnings={status.result.warnings}
+            action={
+              <button
+                type="button"
+                onClick={reset}
+                className="rounded-full border border-ink-muted/30 px-4 py-2 text-xs font-medium hover:border-accent hover:text-accent"
+              >
+                Importer une autre fiche
+              </button>
+            }
           />
           <div className="flex flex-wrap justify-end gap-3">
             <Link

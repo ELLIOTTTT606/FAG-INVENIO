@@ -74,7 +74,7 @@
   }
 
   /* Direct children rise in one after the other. */
-  .stagger > * {
+  .stagger > *:not(.modal-backdrop) {
     animation: rise 640ms var(--ease-smooth) backwards;
   }
   .stagger > *:nth-child(1) { animation-delay: 40ms; }
@@ -86,6 +86,15 @@
 
   .fade-in {
     animation: fade-in 420ms var(--ease-smooth) backwards;
+  }
+
+  /* --- Modal: opens at once, the sheet settles into place ----------------- */
+  .modal-backdrop {
+    animation: fade-in 220ms ease-out backwards;
+    animation-delay: 0ms !important;
+  }
+  .modal-backdrop > * {
+    animation: sheet-in 420ms var(--ease-smooth) backwards;
   }
 
   /* --- Loader ------------------------------------------------------------ */
@@ -143,6 +152,12 @@
   from {
     opacity: 0;
     transform: translateY(18px);
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
   }
 }
 @keyframes fade-in {

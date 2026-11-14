@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ApiError } from '../api/client'
 import type { Client } from '../api/contacts'
 import { createClient, updateClient } from '../api/contacts'
@@ -102,12 +103,13 @@ export function NewClientModal({ open, onClose, onSaved, initial }: Props) {
     }
   }
 
-  return (
+  // Rendered on <body> so the overlay also covers the sticky header.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-client-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-light/40 px-4 backdrop-blur-sm"
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-ink-light/40 px-4 backdrop-blur-sm"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -231,7 +233,8 @@ export function NewClientModal({ open, onClose, onSaved, initial }: Props) {
           </button>
         </footer>
       </form>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

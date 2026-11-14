@@ -60,6 +60,7 @@ test.describe('capture UI screenshots', () => {
     // 6. New-client modal open
     await page.getByTestId('open-new-client').click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    await page.waitForTimeout(700)
     await page.screenshot({ path: `${SHOTS}/06-new-client-modal.png`, fullPage: true })
     await page.keyboard.press('Escape')
     // Closing via the cancel button to make sure the dialog goes away cleanly.

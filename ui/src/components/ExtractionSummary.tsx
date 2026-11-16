@@ -1,8 +1,11 @@
 import type { CanonicalRecord, Warning } from '../api/types'
+import { KeyFigures } from './KeyFigures'
 
 interface Props {
   record: CanonicalRecord
   warnings: Warning[]
+  /** Optional control shown at the end of the header (e.g. import another fiche). */
+  action?: React.ReactNode
 }
 
 interface Field {
@@ -56,7 +59,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-export function ExtractionSummary({ record, warnings }: Props) {
+export function ExtractionSummary({ record, warnings, action }: Props) {
   const cooling = record.performance.cooling ?? {}
   const heating = record.performance.heating ?? {}
   const general = record.general ?? {}
@@ -64,19 +67,22 @@ export function ExtractionSummary({ record, warnings }: Props) {
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+      <header className="fiche-card flex flex-wrap items-center gap-x-6 gap-y-3 rounded-3xl bg-white px-8 py-7 shadow-[0_1px_2px_rgb(0_0_0/0.03),0_8px_24px_-12px_rgb(0_0_0/0.1)]">
         <span className="rounded-full bg-accent-subtle px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
           {record.family}
         </span>
-        <h2 className="text-2xl font-semibold">
+        <h2 className="text-3xl font-bold md:text-4xl">
           {record.model || '?'} <span className="text-ink-muted">·</span> {record.size || '?'}
           <span className="text-ink-muted"> · </span>
           {record.type || '?'}
         </h2>
         {record.designation_code ? (
-          <code className="text-xs text-ink-muted">{record.designation_code}</code>
+          <code className="min-w-0 break-all text-xs text-ink-muted">{record.designation_code}</code>
         ) : null}
+        {action ? <div className="ml-auto">{action}</div> : null}
       </header>
+
+      <KeyFigures record={record} />
 
       {warnings.length > 0 ? (
         <div

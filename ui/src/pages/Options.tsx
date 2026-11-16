@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineContext } from '../api/options'
 import { fetchOptions, groupByCategory, type OptionsResponse } from '../api/options'
+import { LoaderStage } from '../components/LoaderStage'
 import { OptionsAccordion } from '../components/OptionsAccordion'
 import { readImport, readSelectedOptions, rememberSelectedOptions } from '../lib/sessionContext'
 
@@ -86,7 +87,7 @@ export default function Options() {
 
   if (!machine) {
     return (
-      <section className="space-y-6">
+      <section className="stagger space-y-6">
         <p className="text-sm uppercase tracking-widest text-accent">Étape 3 · Options</p>
         <h1 className="text-3xl font-semibold md:text-4xl">Aucune machine sélectionnée</h1>
         <p className="max-w-2xl text-ink-muted">
@@ -106,7 +107,7 @@ export default function Options() {
   }
 
   return (
-    <section className="space-y-8">
+    <section className="stagger space-y-8">
       <header>
         <p className="text-sm uppercase tracking-widest text-accent">Étape 3 · Options</p>
         <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
@@ -137,9 +138,7 @@ export default function Options() {
       </div>
 
       {status === 'loading' ? (
-        <p role="status" className="text-sm text-ink-muted">
-          Chargement du catalogue…
-        </p>
+        <LoaderStage label="Chargement du catalogue" />
       ) : null}
       {status === 'error' ? (
         <p role="alert" className="text-sm text-danger">
@@ -164,7 +163,7 @@ export default function Options() {
             Aucune option disponible pour cette configuration.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="stagger space-y-4">
             {grouped.map(([category, options]) => (
               <OptionsAccordion
                 key={category}

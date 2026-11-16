@@ -7,20 +7,25 @@ const config: Config = {
     extend: {
       colors: {
         // Tokens from `Descriptif DESIGN.docx` (light + dark)
+        // Apple-like neutrals: off-white canvas, white sheets, near-black ink.
+        canvas: '#F4F5F7',
+        // Flux: colour only ever means cooling (cold) or heating (warm).
+        cold: '#2F7DF6',
+        warm: '#FF7A3D',
         surface: {
           light: '#FFFFFF',
           dark: '#0B1220',
           deep: '#1B2A5A',
         },
         ink: {
-          light: '#0F172A',
+          light: '#14161A',
           dark: '#F8FAFC',
-          muted: '#64748B',
+          muted: '#6A6F78',
         },
         accent: {
-          DEFAULT: '#2F5EFF',
-          hover: '#1F4AE0',
-          subtle: '#E0E8FF',
+          DEFAULT: '#2F7DF6',
+          hover: '#1F6BE0',
+          subtle: '#E6EFFE',
         },
         warn: '#F59E0B',
         success: '#10B981',
@@ -36,7 +41,8 @@ const config: Config = {
         '400': '400ms',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Instrument Sans Variable"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['"Archivo Variable"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
       },
     },
   },

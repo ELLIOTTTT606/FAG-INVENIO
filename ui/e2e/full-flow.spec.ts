@@ -32,13 +32,17 @@ test.describe('happy path: import -> options -> contacts -> generate', () => {
     await page.getByRole('link', { name: /continuer vers la génération/i }).click()
     await expect(page).toHaveURL(/\/generate/)
 
-    // 4. Generation: preview iframe + PDF download.
+    // 4. Generation: name the project, the preview picks it up, then the PDF.
     await expect(page.getByTestId('preview-frame')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('project-name').fill('Projet Courneuve')
+    const preview = page.frameLocator('[data-testid="preview-frame"]')
+    await expect(preview.locator('h1.project')).toHaveText('Projet Courneuve', { timeout: 10_000 })
+    await expect(preview.locator('#options')).toBeVisible()
 
     const downloadPromise = page.waitForEvent('download')
     await page.getByTestId('download-pdf').click()
     const download = await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/^INVENIO-plp-052-hs\.pdf$/)
+    expect(download.suggestedFilename()).toBe('INVENIO-projet-courneuve-plp-052-hs.pdf')
     const stream = await download.createReadStream()
     expect(stream).not.toBeNull()
     const chunks: Buffer[] = []

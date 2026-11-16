@@ -89,6 +89,28 @@ export function readContacts<T>(): T | null {
   }
 }
 
+const PROJECT_KEY = 'invenio.projectName'
+
+/** Project name printed on the fiche's cover (e.g. "Projet COURNEUVE"). */
+export function rememberProjectName(name: string): void {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    if (name.trim()) sessionStorage.setItem(PROJECT_KEY, name)
+    else sessionStorage.removeItem(PROJECT_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+export function readProjectName(): string {
+  if (typeof sessionStorage === 'undefined') return ''
+  try {
+    return sessionStorage.getItem(PROJECT_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export function clearImport(): void {
   if (typeof sessionStorage === 'undefined') return
   try {

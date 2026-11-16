@@ -1,0 +1,251 @@
+{#- Stylesheet of the INVENIO selection fiche. Rendered once per document with
+    the embedded fonts and images, then inlined in the HTML. -#}
+@font-face { font-family: Mo; src: url("{{ fonts[300] }}") format("woff2"); font-weight: 300; }
+@font-face { font-family: Mo; src: url("{{ fonts[400] }}") format("woff2"); font-weight: 400; }
+@font-face { font-family: Mo; src: url("{{ fonts[500] }}") format("woff2"); font-weight: 500; }
+@font-face { font-family: Mo; src: url("{{ fonts[600] }}") format("woff2"); font-weight: 600; }
+
+/* Every page is a fixed A4 sheet: no margin boxes, no cross-references to
+   resolve. WeasyPrint, the preview and the browser's print dialog agree. */
+@page { size: A4; margin: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 400 8.6pt/1.5 Mo, Montserrat, Arial, sans-serif; color: #1c2430; background: #fff; }
+h1, h2, h3, h4, p { margin: 0; font-weight: 400; }
+table { width: 100%; border-collapse: collapse; }
+
+.page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff;
+  page-break-after: always; break-after: page; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+.frame { position: absolute; left: 18mm; right: 18mm; top: 32mm; height: 243mm; }
+.logo-l { position: absolute; left: 18mm; top: 13mm; width: 41mm; height: 6.6mm;
+  background: url("{{ images.franceair }}") left center / contain no-repeat; }
+.logo-r { position: absolute; right: 18mm; top: 14.6mm; width: 19mm; height: 3.6mm;
+  background: url("{{ images.invenio }}") right center / contain no-repeat; }
+.foot { position: absolute; left: 18mm; top: 283mm; font: 400 7pt Mo; letter-spacing: .04em; color: #6b7480; }
+.corner { position: absolute; right: 0; bottom: 0; width: 40mm; height: 40mm;
+  background: url("{{ images.corner }}") center / 100% 100% no-repeat; }
+.folio-no { position: absolute; right: 9mm; top: 285mm; font: 600 11pt Mo; letter-spacing: .06em; color: #fff; }
+
+/* Preview on narrow screens: shrink the sheets to the frame (screen only,
+   print and WeasyPrint keep the real A4 size). */
+@media screen and (max-width: 860px) { .page { zoom: .9; } }
+@media screen and (max-width: 760px) { .page { zoom: .78; } }
+@media screen and (max-width: 660px) { .page { zoom: .66; } }
+@media screen and (max-width: 560px) { .page { zoom: .54; } }
+@media screen and (max-width: 460px) { .page { zoom: .44; } }
+@media screen and (max-width: 380px) { .page { zoom: .38; } }
+
+@media screen {
+  body { background: #d9dee4; padding: 8mm 0; }
+  .page { margin: 0 auto 8mm; box-shadow: 0 1px 3px rgba(18, 42, 73, .12), 0 12px 32px -12px rgba(18, 42, 73, .35); }
+}
+
+/* ---------- cover ---------- */
+.cover > * { position: absolute; }
+.cover .field { left: 0; top: 0; width: 210mm; height: 297mm; }
+.cover .lf { left: 20mm; top: 17mm; height: 8.4mm; }
+.cover .li { right: 20mm; top: 19.6mm; height: 4.6mm; }
+.cover .head { left: 20mm; right: 20mm; top: 50mm; }
+.cover .kick { font: 500 8pt Mo; letter-spacing: .38em; color: #5a7390; }
+.cover .project { margin-top: 2.6mm; font: 300 33pt/1.15 Mo; letter-spacing: .01em; color: #032d59; }
+.cover .project.long { font-size: 25pt; }
+.cover .short { display: block; margin-top: 4.4mm; width: 16mm; border-top: .9mm solid #032d59; }
+.cover .photo { right: 14mm; top: 86mm; width: 92mm; }
+.cover .ghost-size { right: 16mm; top: 84mm; font: 300 118pt/1 Mo; letter-spacing: -.01em; color: #e6ebf1; white-space: nowrap; }
+.cover .range { left: 20.6mm; top: 189mm; font: 500 7.2pt Mo; letter-spacing: .36em; color: #9fb2c6; }
+.cover .model { left: 20mm; top: 196mm; font: 300 60pt/1 Mo; letter-spacing: .06em; color: #fff; white-space: nowrap; }
+.cover .model b { font-weight: 600; letter-spacing: .02em; }
+.cover .kind { left: 20.6mm; top: 222mm; font: 400 10.5pt Mo; color: #fff; }
+.cover .ver { left: 20.6mm; top: 228.5mm; font: 400 8.5pt Mo; letter-spacing: .2em; color: #9fb2c6; }
+.cover .figs { left: 20mm; right: 20mm; top: 246mm; display: flex; border-top: .25mm solid rgba(255,255,255,.35); }
+.cover .figs div { flex: 1; padding: 4mm 0 0 0; }
+.cover .figs div + div { padding-left: 5mm; border-left: .25mm solid rgba(255,255,255,.25); }
+.cover .figs small { display: block; font: 500 6.4pt Mo; letter-spacing: .22em; color: #9fb2c6; margin-bottom: 1.4mm; }
+.cover .figs b { font: 500 14pt Mo; color: #fff; }
+.cover .figs b i { font: 300 9pt Mo; font-style: normal; color: #c9d4df; margin-left: .8mm; }
+.cover .ref { left: 20mm; right: 20mm; top: 281mm; display: flex; justify-content: space-between; font: 400 6.6pt Mo; letter-spacing: .06em; color: #8aa0b8; }
+
+/* ---------- back cover ---------- */
+.back { background: #122a49; }
+.back > * { position: absolute; }
+.back .bfield { left: 0; top: 0; width: 210mm; height: 297mm; }
+.back .bi { left: 81mm; top: 176mm; width: 48mm; }
+.back .bk { left: 0; right: 0; top: 192mm; text-align: center; font: 500 7.4pt Mo; letter-spacing: .38em; color: #9fb2c6; }
+.back .bm { left: 20mm; right: 20mm; top: 198mm; text-align: center; font: 300 10pt Mo; letter-spacing: .1em; color: #fff; }
+.back .bf { left: 80mm; top: 246mm; width: 50mm; }
+.back .legal { left: 40mm; right: 40mm; top: 266mm; text-align: center; font: 400 6.4pt/1.6 Mo; color: #8aa0b8; }
+
+/* ---------- section heading ---------- */
+.sec { position: relative; margin-bottom: 9mm; }
+.sec .ghost { position: absolute; right: -1mm; top: -9mm; font: 300 66pt/1 Mo; letter-spacing: -.02em; color: #edf1f5; }
+.sec .kick, .sec h2, .sec .bar { position: relative; }
+.sec .kick { font: 500 7.4pt Mo; letter-spacing: .3em; color: #5a7390; text-transform: uppercase; margin-bottom: 2.6mm; }
+.sec .kick .no { color: #032d59; font-weight: 600; margin-right: 4mm; }
+.sec h2 { font: 400 17pt/1.2 Mo; letter-spacing: .2em; color: #032d59; text-transform: uppercase; }
+.sec .bar { display: block; width: 16mm; border-top: .9mm solid #032d59; margin-top: 4mm; }
+.lede { color: #6b7480; max-width: 140mm; margin: -2mm 0 7mm; }
+
+/* ---------- contents ---------- */
+.toc { list-style: none; padding: 0; margin: 4mm 0 0; }
+.toc li { border-bottom: .25mm solid #d6dde5; }
+.toc a { display: flex; align-items: baseline; padding: 8.6mm 0; color: inherit; text-decoration: none; }
+.toc .n { font: 300 16pt Mo; color: #5a7390; width: 20mm; }
+.toc .t { font: 400 16pt Mo; letter-spacing: .02em; color: #032d59; flex: 1; }
+.toc .p { font: 500 9.5pt Mo; color: #5a7390; }
+
+/* ---------- data tables: navy header bar, as in the INVENIO catalogue ---------- */
+.bar-title { background: #032d59; color: #fff; font: 500 7pt Mo; letter-spacing: .24em; padding: 2.3mm 3.5mm; text-transform: uppercase; }
+.tbl th { text-align: left; font-weight: 400; color: #6b7480; padding: 1.9mm 3.5mm; }
+.tbl td { text-align: right; font-weight: 500; color: #1c2430; padding: 1.9mm 3.5mm; white-space: nowrap; }
+.tbl tr:nth-child(odd) > * { background: #eef2f6; }
+.tbl table { border-bottom: .3mm solid #032d59; }
+.duty .power { font: 300 34pt/1 Mo; color: #032d59; padding: 5mm 3.5mm 4.5mm; letter-spacing: .01em; }
+.duty .power span { font: 400 11pt Mo; color: #5a7390; margin-left: 2mm; letter-spacing: .1em; }
+.flow { display: flex; align-items: flex-end; padding: 0 3.5mm 4.5mm; }
+.flow small { display: block; white-space: nowrap; font: 500 5.6pt Mo; letter-spacing: .12em; color: #5a7390; margin-bottom: .8mm; }
+.flow b { font: 500 11pt Mo; color: #032d59; white-space: nowrap; }
+.flow .air { padding-right: 4mm; margin-right: 4mm; border-right: .25mm solid #d6dde5; }
+.flow .water { flex: 1; min-width: 0; display: flex; align-items: flex-end; }
+.flow .arrow { flex: 1; min-width: 6mm; height: 2.6mm; margin: 0 2.5mm 1.4mm; }
+.flow .out { text-align: right; }
+.na { background: #eef2f6; border-bottom: .3mm solid #032d59; }
+.na p { padding: 8mm 3.5mm; color: #6b7480; }
+.cols { display: flex; align-items: flex-start; }
+.cols > * { flex: 1 1 0; min-width: 0; }
+.cols > * + * { margin-left: 8mm; }
+.gap { height: 4mm; }
+
+/* ---------- comparison grid ---------- */
+.g { border-bottom: .3mm solid #032d59; }
+.g thead th { background: #032d59; color: #fff; font: 500 7pt Mo; letter-spacing: .24em; padding: 2.3mm 3.5mm; text-align: right; text-transform: uppercase; }
+.g thead th:first-child { text-align: left; white-space: nowrap; }
+.g tbody th { text-align: left; font-weight: 400; color: #6b7480; padding: 1.6mm 3.5mm; white-space: nowrap; }
+.g tbody td { text-align: right; font-weight: 500; padding: 1.6mm 3.5mm; white-space: nowrap; width: 30%; }
+.g tbody tr:nth-child(odd) > * { background: #eef2f6; }
+.acou .bc { text-align: left; width: 40%; }
+.acou .bc i { display: inline-block; height: 1.8mm; background: #5a7390; vertical-align: middle; }
+.acou tr.given .bc i { background: #032d59; }
+.acou tr.given th, .acou tr.given td { color: #032d59; font-weight: 600; }
+.cap { font-size: 7pt; color: #6b7480; margin: 1.8mm 0 4mm; }
+.cap .xref { color: #032d59; font-weight: 500; text-decoration: none; }
+
+/* ---------- energy balance ---------- */
+.balwrap { margin-top: 8mm; }
+.balbody { display: flex; background: #eef2f6; padding: 4.5mm 3.5mm 2mm; }
+.balbody .bal { flex: 1 1 0; min-width: 0; }
+.balbody .bal + .bal { margin-left: 9mm; }
+.balwrap > p { background: #eef2f6; padding: 0 3.5mm 3.2mm; font-size: 6.6pt; color: #6b7480; border-bottom: .3mm solid #032d59; }
+.bal h4 { font: 600 6.6pt Mo; letter-spacing: .22em; color: #032d59; margin-bottom: 2.6mm; text-transform: uppercase; }
+.bal .row { display: flex; align-items: flex-start; margin-bottom: 2.6mm; }
+.bal .rl { width: 13mm; flex: none; margin-right: 2.5mm; font: 500 5.4pt Mo; letter-spacing: .16em; color: #5a7390; padding-top: 1.1mm; }
+.bal .bar { flex: 1; min-width: 0; display: flex; }
+.bal .seg { min-width: 0; }
+.bal .seg + .seg { margin-left: .7mm; }
+.bal .seg i { display: block; height: 4.2mm; background: #9fb2c6; }
+.bal .seg.elec i { background: #032d59; }
+.bal .seg.out i { background: #3f6a96; }
+.bal .seg em { display: block; font-style: normal; font-size: 5.8pt; color: #6b7480; margin-top: 1.1mm; white-space: nowrap; }
+.bal .seg b { display: block; font: 600 8pt Mo; color: #032d59; white-space: nowrap; }
+
+/* ---------- seasonal class ---------- */
+.erp { margin-top: 7mm; }
+.erp .steps { display: flex; align-items: flex-end; padding: 4mm 3.5mm 3mm; background: #eef2f6; }
+.erp .steps span { flex: 1; text-align: center; font: 500 8pt Mo; color: #5a7390; background: #fff; padding: 2mm 0; border-bottom: .3mm solid #c3ccd6; }
+.erp .steps span + span { margin-left: 1.2mm; }
+.erp .steps span.on { background: #032d59; color: #fff; font-weight: 600; font-size: 10pt; padding: 3.2mm 0; border-color: #032d59; }
+.erp p { background: #eef2f6; padding: 0 3.5mm 3.5mm; font-size: 7.4pt; color: #6b7480; border-bottom: .3mm solid #032d59; }
+
+/* ---------- operating envelope ---------- */
+.env { margin-bottom: 4mm; }
+.envb { background: #eef2f6; padding: 6mm 6mm 1mm 3.5mm; }
+.env > p { background: #eef2f6; padding: 0 3.5mm 3.2mm; font-size: 6.6pt; color: #6b7480; border-bottom: .3mm solid #032d59; }
+.rg { display: flex; align-items: center; margin-bottom: 7.4mm; }
+.rg .rl { width: 26mm; flex: none; margin-right: 4mm; font: 500 7.4pt Mo; color: #032d59; }
+.track { position: relative; flex: 1; height: 2.2mm; background: #d7dfe8; }
+.track .fill { position: absolute; top: 0; height: 100%; background: #9fb2c6; }
+.track .end { position: absolute; top: 3.2mm; font-size: 6.2pt; color: #6b7480; white-space: nowrap; width: 20mm; margin-left: -10mm; text-align: center; }
+.track .mk { position: absolute; top: -1.4mm; width: 2.4mm; height: 5mm; margin-left: -1.2mm; background: #032d59; }
+.track .mk.h { background: #3f6a96; }
+.track .mk em { position: absolute; bottom: 5.8mm; left: -10mm; width: 22.4mm; text-align: center; font: 600 6.4pt Mo; font-style: normal; color: #032d59; white-space: nowrap; }
+.track .mk.h em { color: #3f6a96; }
+
+/* ---------- options ---------- */
+.legend { margin: -2mm 0 6mm; color: #6b7480; font-size: 7.6pt; }
+.legend span { margin-right: 8mm; }
+.legend .box { vertical-align: -.6mm; margin-right: 2mm; }
+.box { display: inline-block; width: 3mm; height: 3mm; border: .3mm solid #9aa8b6; }
+.sel .box, .box.on { background: #032d59; border-color: #032d59; }
+.family { margin-bottom: 5mm; }
+.family > header { display: flex; justify-content: space-between; align-items: baseline; background: #032d59; color: #fff; padding: 2.3mm 3.5mm; }
+.family h3 { font: 500 7.4pt Mo; letter-spacing: .24em; white-space: nowrap; text-transform: uppercase; }
+.family h3 small { font: 400 6.6pt Mo; letter-spacing: .1em; color: #b9c8d8; text-transform: none; margin-left: 2mm; }
+.ic { width: 4.2mm; height: 4.2mm; vertical-align: -1.2mm; margin-right: 2.6mm; }
+.family > header span { font-size: 7pt; color: #b9c8d8; }
+.opts td { padding: 1.3mm 0; border-bottom: .2mm solid #d6dde5; vertical-align: top; }
+.opts tr.cat td { font: 600 6.8pt Mo; letter-spacing: .18em; text-transform: uppercase; color: #5a7390; padding: 2.8mm 3.5mm 1.2mm; }
+.opts .mark { width: 10mm; padding-left: 3.5mm; padding-top: 1.7mm; }
+.opts .code { width: 12mm; color: #6b7480; }
+.opts b { font-weight: 400; display: block; color: #4a5562; }
+.opts td span { color: #6b7480; font-size: 7.4pt; }
+.opts .price { width: 26mm; text-align: right; color: #6b7480; white-space: nowrap; }
+.opts .state { width: 24mm; text-align: right; padding-right: 3.5mm; font: 600 7pt Mo; letter-spacing: .12em; text-transform: uppercase; color: #032d59; }
+.opts tr.sel > td { background: #eef2f6; }
+.opts tr.sel b { font-weight: 600; color: #032d59; }
+.empty { background: #eef2f6; border-bottom: .3mm solid #032d59; padding: 8mm 3.5mm; color: #6b7480; }
+
+/* ---------- description ---------- */
+.assets { display: flex; margin-bottom: 8mm; }
+.asset { flex: 1 1 0; min-width: 0; background: #eef2f6; padding: 4mm 4mm 4.2mm; border-bottom: .3mm solid #032d59; }
+.asset + .asset { margin-left: 5mm; }
+.aic { width: 8mm; height: 8mm; display: block; margin-bottom: 2.6mm; }
+.asset b { display: block; font: 600 8.4pt Mo; color: #032d59; margin-bottom: 1mm; }
+.asset p { font-size: 7.3pt; color: #6b7480; line-height: 1.45; }
+.desc { columns: 2; column-gap: 9mm; }
+.chap { break-inside: avoid; page-break-inside: avoid; margin-bottom: 5.5mm; }
+.chap .pn { font: 600 7.4pt Mo; color: #5a7390; letter-spacing: .1em; }
+.chap h4 { font: 500 11pt Mo; color: #032d59; padding-bottom: 1.8mm; border-bottom: .3mm solid #032d59; margin: .6mm 0 2mm; }
+.bul { margin: 0; padding: 0; list-style: none; }
+.bul li { position: relative; padding-left: 3.6mm; font-size: 7.8pt; line-height: 1.5; margin-bottom: 1mm; }
+.bul li::before { content: ""; position: absolute; left: 0; top: 1.7mm; width: 1.4mm; height: 1.4mm; background: #032d59; }
+.src { font-size: 6.8pt; color: #6b7480; border-top: .25mm solid #d6dde5; padding-top: 2mm; margin-top: 2mm; }
+
+/* ---------- drawing sheet ---------- */
+.sheet { border: .35mm solid #032d59; padding: 4mm; }
+.sheet .draw { height: 180mm; border: .2mm solid #d6dde5; display: flex; align-items: center; justify-content: center; background: #fff; }
+.sheet .draw img { max-width: 100%; max-height: 100%; }
+.cart { width: 120mm; margin: 4mm 0 0 auto; }
+.cart th, .cart td { border: .2mm solid #c3ccd6; padding: 1.6mm 2.4mm; text-align: left; }
+.cart th { font: 500 6pt Mo; letter-spacing: .2em; text-transform: uppercase; color: #5a7390; width: 15mm; }
+.cart td { font-weight: 500; color: #032d59; }
+
+/* ---------- implantation ---------- */
+.clear { position: relative; height: 76mm; background: #eef2f6; margin-bottom: 6mm; }
+.clear svg { position: absolute; left: 0; top: 0; width: 174mm; height: 76mm; }
+.clear .zl { position: absolute; font: 600 5.6pt Mo; letter-spacing: .22em; }
+.clear .zl.s { left: 23mm; top: 6.4mm; color: #032d59; }
+.clear .zl.m { left: 52.5mm; top: 20mm; color: #5a7390; }
+.clear .unit { position: absolute; left: 64mm; width: 46mm; top: 36.4mm; text-align: center; font: 500 7pt Mo; letter-spacing: .24em; color: #032d59; }
+.clear .dist { position: absolute; left: 124mm; top: 33mm; font: 600 8.4pt Mo; color: #032d59; }
+.panes { display: flex; align-items: stretch; }
+.panes > * { flex: 1 1 0; min-width: 0; }
+.panes > * + * { margin-left: 6mm; }
+.pane { background: #eef2f6; border-bottom: .3mm solid #032d59; }
+.pane .bul { padding: 3mm 3.5mm 2.4mm; }
+.pane .bul li { font-size: 7.6pt; margin-bottom: 1.2mm; }
+
+/* ---------- contacts ---------- */
+.mapwrap { text-align: center; margin: -3mm 0 0; }
+.map { width: 134mm; height: 129mm; }
+.where { text-align: center; margin: 2mm 0 8mm; font: 500 7.4pt Mo; letter-spacing: .26em; color: #5a7390; text-transform: uppercase; }
+.where b { color: #032d59; font-weight: 600; }
+.people { display: flex; justify-content: center; }
+.person { flex: 0 1 56mm; min-width: 0; }
+.person + .person { margin-left: 5mm; }
+.person .role { background: #032d59; color: #fff; font: 500 8pt Mo; letter-spacing: .3em; padding: 2.4mm 3.5mm; }
+.person .pb { background: #eef2f6; padding: 3.5mm 3.5mm 4mm; border-bottom: .3mm solid #032d59; }
+.person .rt { font-size: 7pt; color: #6b7480; }
+.person .who { display: flex; align-items: center; margin: 2.6mm 0 2mm; }
+.person .av { flex: none; width: 8mm; height: 8mm; margin-right: 2.6mm; border-radius: 50%; background: #032d59; color: #fff; font: 600 7pt/8mm Mo; letter-spacing: .06em; text-align: center; }
+.person .name { font-weight: 600; color: #032d59; }
+.person .line { font-size: 7.6pt; overflow-wrap: anywhere; }

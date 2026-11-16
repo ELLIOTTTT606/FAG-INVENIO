@@ -9,6 +9,7 @@ export interface PlanAttachment {
 
 export interface GenerationRequest {
   record: CanonicalRecord
+  projectName?: string
   contacts?: DepartmentContacts | null
   selectedOptionCodes: string[]
   documentReference?: string
@@ -18,6 +19,7 @@ export interface GenerationRequest {
 function toBody(request: GenerationRequest): Record<string, unknown> {
   return {
     record: request.record,
+    project_name: request.projectName?.trim() || null,
     contacts: request.contacts ?? null,
     selected_option_codes: request.selectedOptionCodes,
     document_reference: request.documentReference ?? null,
@@ -60,7 +62,21 @@ export async function fetchPdfBlob(request: GenerationRequest): Promise<Blob> {
   return await response.blob()
 }
 
-export function suggestedFilename(record: CanonicalRecord, extension = 'pdf'): string {
-  const slug = `${record.model}-${record.size}-${record.type}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
+/** Same rule as the API's `suggested_filename`: project, model, size, type. */
+export function suggestedFilename(
+  record: CanonicalRecord,
+  extension = 'pdf',
+  projectName?: string,
+): string {
+  const base = [projectName, record.model, record.size, record.type]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join('-')
+  const slug = base
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
   return `INVENIO-${slug || 'fiche'}.${extension}`
 }

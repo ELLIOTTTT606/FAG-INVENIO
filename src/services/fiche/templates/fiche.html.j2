@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{{ v.title }}</title>
+<style>{{ stylesheet | safe }}</style>
+</head>
+<body>
+{%- macro chrome(page) %}
+  <i class="logo-l"></i><i class="logo-r"></i>
+  <p class="foot">{{ v.footer }}</p>
+  <i class="corner"></i><p class="folio-no">{{ page.folio }}</p>
+{%- endmacro %}
+
+{%- macro heading(section, ghost=True) %}
+  <header class="sec">
+    {%- if ghost and section.no %}<span class="ghost">{{ section.no }}</span>{% endif %}
+    <p class="kick">{% if section.no %}<span class="no">{{ section.no }}</span>{% endif %}{{ section.note }}</p>
+    <h2>{{ section.title }}</h2><i class="bar"></i>
+  </header>
+{%- endmacro %}
+
+{%- macro grid(title, heads, rows, extra_class="") %}
+  <table class="g {{ extra_class }}">
+    <thead><tr><th>{{ title }}</th>
+      {%- if heads | length == 1 %}<th colspan="2">{{ heads[0] }}</th>
+      {%- else %}{% for h in heads %}<th>{{ h }}</th>{% endfor %}{% endif %}</tr></thead>
+    <tbody>
+    {%- for label, values in rows %}
+      <tr><th>{{ label }}</th>
+      {%- if values | length == 1 %}<td colspan="2">{{ values[0] }}</td>
+      {%- elif heads | length == 1 %}<td colspan="2">{{ values[0] }}</td>
+      {%- else %}{% for value in values %}<td>{{ value }}</td>{% endfor %}{% endif %}</tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+{%- endmacro %}
+
+{%- macro table(title, rows) %}
+  <div class="tbl"><h3 class="bar-title">{{ title }}</h3><table>
+  {%- for label, value in rows %}<tr><th>{{ label }}</th><td>{{ value }}</td></tr>{% endfor %}
+  </table></div>
+{%- endmacro %}
+
+{%- for page in v.pages %}
+{%- if page.kind == "cover" %}
+<section class="page cover" id="couverture">
+  <svg class="field" viewBox="0 0 210 297" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,168 210,124 210,297 0,297" fill="#122a49"/>
+    <polygon points="118,297 210,150 210,297" fill="#032d59"/>
+  </svg>
+  <img class="lf" src="{{ images.franceair }}" alt="France Air">
+  <img class="li" src="{{ images.invenio }}" alt="INVENIO">
+  <div class="head">
+    <p class="kick">FICHE DE SÉLECTION TECHNIQUE</p>
+    <h1 class="project{% if v.cover.title_long %} long{% endif %}">{{ v.cover.title }}</h1>
+    <i class="short"></i>
+  </div>
+  {%- if photo %}
+  <img class="photo" src="{{ photo }}" alt="{{ v.cover.model }}">
+  {%- else %}
+  <p class="ghost-size">{{ v.cover.size }}</p>
+  {%- endif %}
+  <p class="range">{{ v.cover.range }}</p>
+  <p class="model">{{ v.cover.model }} <b>{{ v.cover.size }}</b></p>
+  <p class="kind">{{ v.cover.kind }}</p>
+  <p class="ver">{{ v.cover.version }}</p>
+  <div class="figs">
+    {%- for label, value, unit in v.cover.figures %}
+    <div><small>{{ label }}</small><b>{{ value }}{% if unit %}<i>{{ unit }}</i>{% endif %}</b></div>
+    {%- endfor %}
+  </div>
+  <div class="ref"><span>{% if v.cover.reference %}Réf. {{ v.cover.reference }}{% endif %}</span><span>{{ v.document_reference }} · {{ v.edition }}</span></div>
+</section>
+
+{%- elif page.kind == "toc" %}
+<section class="page" id="sommaire">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading({"no": "", "title": "Sommaire", "note": v.project or v.machine}, ghost=False) }}
+    <ol class="toc">
+    {%- for entry in v.toc %}
+      <li><a href="#{{ entry.kind }}"><span class="n">{{ entry.no }}</span><span class="t">{{ entry.title }}</span><span class="p">{{ "%02d" | format(entry.page) }}</span></a></li>
+    {%- endfor %}
+    </ol>
+  </div>
+</section>
+
+{%- elif page.kind == "synthese" %}
+{%- set d = page.data %}
+<section class="page" id="synthese">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    <p class="lede">{{ d.lede }}</p>
+    <div class="cols">
+    {%- for duty in d.duties %}
+      <div class="tbl duty">
+        <h3 class="bar-title">{{ duty.title }}</h3>
+        <p class="power">{{ duty.power }}<span>kW</span></p>
+        <div class="flow">
+          <div class="air"><small>AIR EXT.</small><b>{{ duty.air }}</b></div>
+          <div class="water"><div><small>EAU ENTRÉE</small><b>{{ duty.water_in }}</b></div>
+            <svg class="arrow" viewBox="0 0 100 8" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><line x1="1" y1="4" x2="93" y2="4" stroke="#5a7390" stroke-width=".7"/><polygon points="92,1 100,4 92,7" fill="#032d59"/><circle cx="2" cy="4" r="1.8" fill="#5a7390"/></svg>
+            <div class="out"><small>EAU SORTIE</small><b>{{ duty.water_out }}</b></div></div>
+        </div>
+        <table>{% for label, value in duty.rows %}<tr><th>{{ label }}</th><td>{{ value }}</td></tr>{% endfor %}</table>
+      </div>
+    {%- endfor %}
+    {%- if d.no_heating %}
+      <div class="na"><h3 class="bar-title">Partie chaude</h3><p>Mode chauffage non applicable : machine froid seul.</p></div>
+    {%- endif %}
+    </div>
+    {%- if d.balances %}
+    <div class="balwrap">
+      <h3 class="bar-title">Bilan énergétique au point de sélection</h3>
+      <div class="balbody">
+      {%- for b in d.balances %}
+        <div class="bal"><h4>{{ b.title }}</h4>
+          <div class="row"><span class="rl">ENTRÉES</span><div class="bar">
+          {%- for seg in b.inputs %}<div class="seg {{ seg.kind }}" style="width:{{ seg.width }}%"><i></i><em>{{ seg.label }}</em><b>{{ seg.value }}</b></div>{% endfor %}
+          </div></div>
+          <div class="row"><span class="rl">SORTIE</span><div class="bar"><div class="seg out" style="width:100%"><i></i><em>{{ b.output.label }}</em><b>{{ b.output.value }}</b></div></div></div>
+        </div>
+      {%- endfor %}
+      </div>
+      <p>Bilan simplifié en régime établi : puissance utile et puissance électrique absorbée totale de la sélection, la différence étant échangée avec l’air extérieur.</p>
+    </div>
+    {%- endif %}
+    {%- if d.erp %}
+    <div class="erp">
+      <h3 class="bar-title">Classe d’efficacité saisonnière · chauffage</h3>
+      <div class="steps">{% for step, on in d.erp.steps %}<span{% if on %} class="on"{% endif %}>{{ step }}</span>{% endfor %}</div>
+      <p>{{ d.erp.caption }}</p>
+    </div>
+    {%- endif %}
+  </div>
+</section>
+
+{%- elif page.kind == "technique" %}
+{%- set d = page.data %}
+<section class="page" id="technique">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    {{ grid("Électrique", d.columns, d.electrical) }}
+    <div class="gap"></div>
+    {%- if d.acoustic %}
+    <table class="g acou">
+      <thead><tr><th colspan="2">Acoustique</th><th>{{ d.acoustic.lw }} LW</th></tr></thead>
+      <tbody>
+      {%- for row in d.acoustic.rows %}
+        <tr{% if row.given %} class="given"{% endif %}><th>{{ row.label }}</th><td class="bc"><i style="width:{{ row.bar }}mm"></i></td><td>{{ row.value }}</td></tr>
+      {%- endfor %}
+      </tbody>
+    </table>
+    <p class="cap">{{ d.acoustic.caption }}</p>
+    {%- endif %}
+    {%- if d.envelope %}
+    <div class="env">
+      <h3 class="bar-title">{{ d.envelope.title }}</h3>
+      <div class="envb">
+      {%- for bar in d.envelope.bars %}
+        <div class="rg"><p class="rl">{{ bar.label }}</p><div class="track">
+          <i class="fill" style="left:{{ bar.fill_left }}%;width:{{ bar.fill_width }}%"></i>
+          {%- for m in bar.marks %}<span class="mk {{ m.kind }}" style="left:{{ m.at }}%"><em>{{ m.label }}</em></span>{% endfor %}
+          <span class="end" style="left:{{ bar.low_at }}%">{{ bar.low }}</span>
+          <span class="end" style="left:{{ bar.high_at }}%">{{ bar.high }}</span>
+        </div></div>
+      {%- endfor %}
+      </div>
+      <p>{{ d.envelope.source }}</p>
+    </div>
+    {%- endif %}
+    <div class="cols">
+      {{ table("Aéraulique", d.aeraulic) }}
+      {{ table("Circuit frigorifique · masse", d.refrigerant) }}
+    </div>
+    <div class="gap"></div>
+    {{ grid("Hydraulique · pompe", ["Intensité", "Pression dispo."], d.pump_rows) }}
+    <p class="cap">{% if d.pump_missing %}Intensité et pression disponible de la pompe : à confirmer avec le référentiel GALLETTI. {% endif %}Prix et descriptif : <a class="xref" href="#options">Options et accessoires, page {{ "%02d" | format(v.options_page) }}</a>.</p>
+  </div>
+</section>
+
+{%- elif page.kind == "options" %}
+<section class="page"{% if not page.continued %} id="options"{% endif %}>
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    <p class="legend"><span><i class="box on"></i>Retenue</span><span><i class="box"></i>Disponible</span><span>{{ page.summary.source }} · {{ page.summary.selected }} retenue{% if page.summary.selected > 1 %}s{% endif %} sur {{ page.summary.total }}</span></p>
+    {%- if not page.data %}
+    <p class="empty">Aucune option référencée pour cette machine.</p>
+    {%- endif %}
+    {%- for block in page.data %}
+    <section class="family">
+      <header><h3>{{ v.family_icons[block.family.icon] | safe }}{{ block.family.name }}{% if block.continued %}<small>(suite)</small>{% endif %}</h3><span>{{ block.family.count }}</span></header>
+      <table class="opts">
+      {%- for row in block.rows %}
+        {%- if row.type == "cat" %}
+        <tr class="cat"><td colspan="5">{{ row.label }}</td></tr>
+        {%- else %}
+        <tr{% if row.selected %} class="sel"{% endif %}>
+          <td class="mark"><span class="box"></span></td>
+          <td class="code">{{ row.code }}</td>
+          <td><b>{{ row.label }}</b>{% if row.description %}<span>{{ row.description }}</span>{% endif %}</td>
+          <td class="price">{% if page.summary.show_price %}{{ row.price }}{% endif %}</td>
+          <td class="state">{% if row.selected %}Retenue{% endif %}</td>
+        </tr>
+        {%- endif %}
+      {%- endfor %}
+      </table>
+    </section>
+    {%- endfor %}
+  </div>
+</section>
+
+{%- elif page.kind == "description" %}
+{%- set d = page.data %}
+<section class="page" id="description">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    {%- if d.highlights %}
+    <div class="assets">
+    {%- for h in d.highlights %}<div class="asset">{{ h.icon | safe }}<b>{{ h.title }}</b><p>{{ h.text }}</p></div>{% endfor %}
+    </div>
+    {%- endif %}
+    <div class="desc">
+    {%- for chapter in d.chapters %}
+      <div class="chap"><p class="pn">{{ page.section.no | int }}.{{ loop.index }}</p><h4>{{ chapter.title }}</h4>
+        <ul class="bul">{% for item in chapter["items"] %}<li>{{ item }}</li>{% endfor %}</ul></div>
+    {%- endfor %}
+    </div>
+    {%- if d.sources %}<p class="src">Sources : {{ d.sources }}</p>{% endif %}
+  </div>
+</section>
+
+{%- elif page.kind == "plans" %}
+<section class="page"{% if not page.continued %} id="plans"{% endif %}>
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    <div class="sheet">
+      <div class="draw"><img src="{{ page.plan.data_url }}" alt="{{ page.plan.name }}"></div>
+      <table class="cart">
+        <tr><th>Projet</th><td>{{ v.project or "—" }}</td><th>Machine</th><td>{{ v.machine }}</td></tr>
+        <tr><th>Vue</th><td>{{ page.plan.name }}</td><th>Date</th><td>{{ v.edition_short }}</td></tr>
+        <tr><th>Poids</th><td>{{ v.weight }}</td><th>Folio</th><td>{{ page.folio }}</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+{%- elif page.kind == "implantation" %}
+{%- set d = page.data %}
+<section class="page" id="implantation">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    <div class="clear">
+      <svg viewBox="0 0 174 76" xmlns="http://www.w3.org/2000/svg">
+        <rect x="20" y="4" width="134" height="68" fill="none" stroke="#032d59" stroke-width=".35" stroke-dasharray="1.8 1.3"/>
+        <rect x="50" y="18" width="74" height="40" fill="#dde5ee"/>
+        <rect x="64" y="26" width="46" height="24" fill="#ffffff" stroke="#032d59" stroke-width=".6"/>
+        {%- if d.safety_distance %}
+        <g stroke="#032d59" stroke-width=".35" fill="#032d59">
+          <line x1="110" y1="38" x2="152" y2="38"/><polygon points="150.4,36.6 153.4,38 150.4,39.4"/><polygon points="111.6,36.6 108.6,38 111.6,39.4"/>
+        </g>
+        {%- endif %}
+      </svg>
+      <p class="zl s">{% if d.safety %}ZONE DE SÉCURITÉ R290{% else %}ZONE DE SÉCURITÉ{% endif %}</p><p class="zl m">ZONE DE MAINTENANCE</p>
+      <p class="unit">{{ v.cover.model }} {{ v.cover.size }}</p>
+      {%- if d.safety_distance %}<p class="dist">{{ d.safety_distance }}</p>{% endif %}
+    </div>
+    {%- if d.rows %}
+    <table class="g">
+      <thead><tr><th>{{ d.title }}</th><th colspan="2">Distance</th></tr></thead>
+      <tbody>{% for label, value in d.rows %}<tr><th>{{ label }}</th><td colspan="2">{{ value }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {%- endif %}
+    <p class="cap">{{ d.caption }}</p>
+    <div class="panes">
+      {%- if d.safety %}
+      <div class="pane"><h3 class="bar-title">Points de vigilance R290</h3>
+        <ul class="bul">{% for item in d.safety %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      {%- endif %}
+      {%- if d.site %}
+      <div class="pane"><h3 class="bar-title">À prévoir sur site</h3>
+        <ul class="bul">{% for item in d.site %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      {%- endif %}
+    </div>
+  </div>
+</section>
+
+{%- elif page.kind == "contacts" %}
+{%- set d = page.data %}
+<section class="page" id="contacts">
+  {{ chrome(page) }}
+  <div class="frame">
+    {{ heading(page.section) }}
+    <div class="mapwrap">{{ d.map | safe }}</div>
+    <p class="where">Département <b>{{ d.code }}{% if d.name %} · {{ d.name }}{% endif %}</b></p>
+    <div class="people">
+    {%- for p in d.people %}
+      <div class="person"><p class="role">{{ p.role }}</p><div class="pb"><p class="rt">{{ p.title }}</p>
+        <div class="who"><span class="av">{{ p.initials }}</span><p class="name">{{ p.name }}</p></div>
+        {%- if p.email %}<p class="line">{{ p.email }}</p>{% endif %}
+        {%- if p.phone %}<p class="line">{{ p.phone }}</p>{% endif %}
+      </div></div>
+    {%- endfor %}
+    </div>
+  </div>
+</section>
+
+{%- elif page.kind == "back" %}
+<section class="page back" id="dos">
+  <svg class="bfield" viewBox="0 0 210 297" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,0 210,0 210,96 0,140" fill="#032d59"/>
+    <polygon points="40,250 105,130 170,250" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-width=".3"/>
+  </svg>
+  <img class="bi" src="{{ images.invenio_white }}" alt="INVENIO">
+  <p class="bk">FICHE DE SÉLECTION TECHNIQUE</p>
+  <p class="bm">{{ v.footer }}</p>
+  <img class="bf" src="{{ images.franceair_white }}" alt="France Air">
+  <p class="legal">{{ v.legal }}</p>
+</section>
+{%- endif %}
+{%- endfor %}
+</body>
+</html>

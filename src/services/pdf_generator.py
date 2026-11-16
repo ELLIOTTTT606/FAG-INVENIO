@@ -1,10 +1,10 @@
 """HTML + PDF rendering of the INVENIO selection fiche.
 
-The Jinja2 template (`templates/fiche.html.j2`) consumes the canonical
-record produced by the parsers, plus a few view-model extras (selected
-options, contacts, references). The HTML output is self-contained
-(stylesheet inlined) so it can either be served as-is for an in-app
-preview or piped through WeasyPrint to produce the final PDF.
+`src.services.fiche.view` turns the canonical record (plus the project name,
+the options catalogue, the chosen options, the contacts and the attached
+plans) into fixed A4 pages; the Jinja template places them. The HTML output
+is self-contained (fonts and images embedded) so it can be served as an
+in-app preview, printed by the browser, or piped through WeasyPrint.
 
 WeasyPrint is an optional dependency. If it is missing, `render_pdf`
 raises `PdfEngineUnavailableError` so the API can return 503 instead of 500.
@@ -12,16 +12,20 @@ raises `PdfEngineUnavailableError` so the API can return 503 instead of 500.
 
 from __future__ import annotations
 
+import base64
 import io
 import re
 import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from importlib import resources
+from functools import lru_cache
 from typing import Any
 
 import jinja2
+
+from src.services.fiche.resources import asset_data_url
+from src.services.fiche.view import FicheInputs, Plan, build_view
 
 __all__ = [
     "GenerationContext",
@@ -29,10 +33,8 @@ __all__ = [
     "PlanImage",
     "render_html",
     "render_pdf",
+    "suggested_filename",
 ]
-
-
-_TEMPLATES_PACKAGE = "src.services.templates"
 
 
 class PdfEngineUnavailableError(RuntimeError):
@@ -57,91 +59,81 @@ class GenerationContext:
     document_reference: str | None = None
     generated_at: datetime | None = None
     plans: tuple[PlanImage, ...] = ()
+    project_name: str | None = None
+    # Options catalogue of the machine (CatalogOption.to_dict() entries).
+    catalog_options: tuple[dict[str, Any], ...] = ()
 
 
-def _load_text(name: str) -> str:
-    return resources.files(_TEMPLATES_PACKAGE).joinpath(name).read_text(encoding="utf-8")
+_CORNER_SVG = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" preserveAspectRatio="none">'
+    b'<polygon points="0,60 60,0 60,60" fill="#eef2f6"/>'
+    b'<polygon points="16,60 60,16 60,60" fill="#032d59"/></svg>'
+)
 
 
-def _load_static(name: str) -> str:
-    return resources.files(_TEMPLATES_PACKAGE).joinpath("static").joinpath(name).read_text(
-        encoding="utf-8"
+@lru_cache(maxsize=1)
+def _environment() -> jinja2.Environment:
+    return jinja2.Environment(
+        loader=jinja2.PackageLoader("src.services.fiche", "templates"),
+        autoescape=jinja2.select_autoescape(default=True, default_for_string=True),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        undefined=jinja2.StrictUndefined,
     )
 
 
-def _format_value(value: Any, unit: str | None = None) -> str:
-    if value is None or value == "":
-        return '<span class="missing">Donnée non disponible</span>'
-    if isinstance(value, bool):
-        text = "Oui" if value else "Non"
-    elif isinstance(value, float):
-        text = f"{value:.1f}".rstrip("0").rstrip(".") or "0"
-        if "." not in text and value != int(value):
-            text = f"{value:.1f}"
-    else:
-        text = str(value)
-    return f"{text} {unit}" if unit else text
+@lru_cache(maxsize=1)
+def _images() -> dict[str, str]:
+    return {
+        "franceair": asset_data_url("logo-franceair.png"),
+        "franceair_white": asset_data_url("logo-franceair-blanc.png"),
+        "invenio": asset_data_url("logo-invenio.png"),
+        "invenio_white": asset_data_url("logo-invenio-blanc.png"),
+        "corner": "data:image/svg+xml;base64," + base64.b64encode(_CORNER_SVG).decode("ascii"),
+    }
+
+
+@lru_cache(maxsize=1)
+def _stylesheet() -> str:
+    fonts = {weight: asset_data_url(f"montserrat-{weight}.woff2") for weight in (300, 400, 500, 600)}
+    return _environment().get_template("fiche.css.j2").render(fonts=fonts, images=_images())
 
 
 def _slugify(value: str) -> str:
     folded = "".join(
-        c
-        for c in unicodedata.normalize("NFKD", value)
-        if not unicodedata.combining(c)
+        c for c in unicodedata.normalize("NFKD", value) if not unicodedata.combining(c)
     )
     return re.sub(r"[^A-Za-z0-9-]+", "-", folded).strip("-").lower()
 
 
-def _select_options(record: dict[str, Any], selected_codes: tuple[str, ...]) -> list[dict[str, Any]]:
-    """Return the option entries from the record that match the user's selection.
-
-    Falls back to options whose `selected` flag is True when no explicit
-    code list is given.
-    """
-
-    options = record.get("options") or []
-    if selected_codes:
-        wanted = set(selected_codes)
-        return [opt for opt in options if opt.get("code") in wanted]
-    return [opt for opt in options if opt.get("selected")]
-
-
-def _build_environment() -> jinja2.Environment:
-    loader = jinja2.PackageLoader(_TEMPLATES_PACKAGE, ".")
-    env = jinja2.Environment(
-        loader=loader,
-        autoescape=jinja2.select_autoescape(default=True),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        undefined=jinja2.ChainableUndefined,
+def build_inputs(context: GenerationContext) -> FicheInputs:
+    record = context.record
+    reference = (
+        context.document_reference
+        or f"INV-{record.get('model', '')}{record.get('size', '')}-{uuid.uuid4().hex[:6].upper()}"
     )
-    env.globals["value"] = _format_value
-    return env
+    return FicheInputs(
+        record=record,
+        generated_at=context.generated_at or datetime.now(tz=UTC),
+        document_reference=reference,
+        project_name=context.project_name,
+        contacts=context.contacts,
+        catalog_options=tuple(context.catalog_options),
+        selected_option_codes=tuple(context.selected_option_codes),
+        plans=tuple(Plan(name=p.name, data_url=p.data_url) for p in context.plans),
+    )
 
 
 def render_html(context: GenerationContext) -> str:
     """Render the fiche as a self-contained HTML string."""
 
-    env = _build_environment()
-    template = env.get_template("fiche.html.j2")
-    generated_at = context.generated_at or datetime.now(tz=UTC)
-    record = context.record
-    selected = _select_options(record, context.selected_option_codes)
-
-    document_reference = (
-        context.document_reference
-        or f"INV-{record.get('model', '')}{record.get('size', '')}-{uuid.uuid4().hex[:6].upper()}"
-    )
-
-    return template.render(
-        record=record,
-        warnings=record.get("warnings") or [],
-        contacts=context.contacts,
-        selected_options=selected,
-        document_reference=document_reference,
-        generated_at_fr=generated_at.strftime("%d-%m-%Y"),
-        plans=[{"name": plan.name, "data_url": plan.data_url} for plan in context.plans],
-        stylesheet=_load_static("style.css"),
+    view = build_view(build_inputs(context))
+    photo_name = view["cover"]["photo"]
+    photo = asset_data_url(photo_name) if photo_name else None
+    return (
+        _environment()
+        .get_template("fiche.html.j2")
+        .render(v=view, images=_images(), photo=photo, stylesheet=_stylesheet())
     )
 
 
@@ -150,9 +142,13 @@ def render_pdf(context: GenerationContext) -> bytes:
 
     try:
         from weasyprint import HTML
-    except ImportError as err:  # pragma: no cover - environment-dependent
+    except (ImportError, OSError) as err:  # pragma: no cover - environment-dependent
+        # ImportError: the package is absent. OSError: it is installed but its
+        # system libraries (Pango, GObject) cannot be loaded, as on serverless
+        # hosts.
         raise PdfEngineUnavailableError(
-            "WeasyPrint is not installed. Run `pip install -e .[pdf]`."
+            "WeasyPrint is unavailable: not installed, or its system libraries "
+            "(Pango) are missing on this host."
         ) from err
 
     html = render_html(context)
@@ -161,11 +157,14 @@ def render_pdf(context: GenerationContext) -> bytes:
     return buffer.getvalue()
 
 
-def suggested_filename(record: dict[str, Any], extension: str = "pdf") -> str:
+def suggested_filename(
+    record: dict[str, Any], extension: str = "pdf", project_name: str | None = None
+) -> str:
     parts = [
+        project_name or "",
         record.get("model") or "",
         record.get("size") or "",
         record.get("type") or "",
     ]
-    base = "-".join(part for part in parts if part) or "fiche"
+    base = "-".join(str(part).strip() for part in parts if str(part).strip()) or "fiche"
     return f"INVENIO-{_slugify(base) or 'fiche'}.{extension}"

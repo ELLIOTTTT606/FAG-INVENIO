@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://invenio.france-air/fiche/gamme.schema.json",
+  "title": "Documentation d'une gamme GALLETTI pour la fiche de sélection",
+  "description": "One file per range (src/services/fiche/data/gammes/<MODEL>.json). Every field is optional except the model: the fiche omits what is not documented.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["model"],
+  "properties": {
+    "model": { "type": "string", "pattern": "^[A-Z0-9_-]{1,32}$" },
+    "range_label": { "type": "string", "minLength": 1 },
+    "photo": { "type": "string", "pattern": "^[a-z0-9-]+\\.(png|webp|jpe?g)$" },
+    "kinds": {
+      "description": "Machine kind by first letter of the version (H: heat pump, C: cooling only).",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z]$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "highlights": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["icon", "title", "text"],
+        "properties": {
+          "icon": { "enum": ["drop", "scroll", "shield", "hydraulique", "regulation", "acoustique", "electrique", "aeraulique", "accessoires"] },
+          "title": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "description": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "items"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "items": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "description_sources": { "type": "string" },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["air_C", "water_C"],
+      "properties": {
+        "air_C": { "$ref": "#/$defs/range" },
+        "water_C": { "$ref": "#/$defs/range" },
+        "source": { "type": "string" }
+      }
+    },
+    "plans_source": { "type": "string" },
+    "implantation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refrigerant_safety": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "clearances": {
+          "description": "Keyed by size + first letter of the version, e.g. 052H.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9A-Z]{2,6}[A-Z]$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maintenance_b_m": { "type": "number", "exclusiveMinimum": 0 },
+              "maintenance_c_m": { "type": "number", "exclusiveMinimum": 0 },
+              "safety_d_m": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        },
+        "source": { "type": "string" },
+        "missing": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    }
+  }
+}

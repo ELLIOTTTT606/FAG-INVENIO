@@ -58,6 +58,8 @@
   </div>
   {%- if photo %}
   <img class="photo" src="{{ photo }}" alt="{{ v.cover.model }}">
+  {%- else %}
+  <p class="ghost-size">{{ v.cover.size }}</p>
   {%- endif %}
   <p class="range">{{ v.cover.range }}</p>
   <p class="model">{{ v.cover.model }} <b>{{ v.cover.size }}</b></p>

@@ -26,7 +26,7 @@ _MONTHS = (
 
 
 def is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, int | float) and not isinstance(value, bool)
 
 
 def number(value: Any, unit: str = "", decimals: int | None = None) -> str:

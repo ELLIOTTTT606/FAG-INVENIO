@@ -109,3 +109,26 @@ def test_clearances_only_when_known_for_the_size() -> None:
     assert known_page["data"]["safety_distance"] == "3 m"
     assert other_page["data"]["safety_distance"] is None
     assert "p. 15" in other_page["data"]["caption"]
+
+
+def test_every_range_documentation_file_is_valid() -> None:
+    import json
+    from importlib import resources
+
+    import jsonschema
+
+    data = resources.files("src.services.fiche").joinpath("data")
+    schema = json.loads(data.joinpath("gamme.schema.json").read_text("utf-8"))
+    assets = resources.files("src.services.fiche").joinpath("assets")
+    files = [f for f in data.joinpath("gammes").iterdir() if f.name.endswith(".json")]
+    assert files, "at least one documented range"
+    for entry in files:
+        doc = json.loads(entry.read_text("utf-8"))
+        jsonschema.validate(doc, schema)
+        assert entry.name == f"{doc['model']}.json"
+        if "photo" in doc:
+            assert assets.joinpath(doc["photo"]).is_file(), doc["photo"]
+        envelope = doc.get("envelope")
+        if envelope:
+            for low, high in (envelope["air_C"], envelope["water_C"]):
+                assert low < high

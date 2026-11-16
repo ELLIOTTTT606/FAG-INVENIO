@@ -17,6 +17,7 @@ generation d'une fiche de selection PDF au design France Air.
 - [Prerequis](#prerequis)
 - [Installation](#installation)
 - [Lancement](#lancement)
+- [Fiche de selection (PDF)](#fiche-de-selection-pdf)
 - [Outils CLI](#outils-cli)
 - [Tests](#tests)
 - [Structure du depot](#structure-du-depot)
@@ -120,16 +121,60 @@ Les pages livrees a ce stade :
   pre-cochage des options decodees de la designation, compteur global,
   description + tips sur depliage. Charge depuis
   `/options?model=&type=&size=`.
-- `/generate` — apercu de la fiche dans une iframe (HTML rendu par
+- `/generate` — champ "Nom du projet" (couverture, pied de page, nom du
+  fichier), plans joints, liste "Avant envoi" (ce que la fiche contiendra
+  ou omettra), apercu de la fiche dans une iframe (HTML rendu par
   `/generate/preview`) et bouton "Telecharger le PDF" qui appelle
-  `/generate/pdf` (rendu via WeasyPrint, sommaire cliquable, bookmarks
-  PDF, page de garde France Air).
+  `/generate/pdf`. Sans moteur PDF sur le serveur (Vercel), l'apercu est
+  imprime par le navigateur : la mise en page est identique.
+
+## Fiche de selection (PDF)
+
+La fiche suit la charte INVENIO (bleu marine, Montserrat, diagonales) :
+couverture (nom du projet, modele et taille), sommaire, synthese (parties
+froide et chaude, bilan energetique, classe saisonniere), donnees
+techniques (electrique, acoustique a 5 / 10 / 20 m, plage de
+fonctionnement, pompe), options et accessoires (tout le catalogue de la
+machine par famille, options retenues marquees, prix), descriptif de la
+gamme, plans joints, implantation (zones de maintenance et de securite
+R290), contacts (carte de France, departement en surbrillance) et dos.
+
+- Code : `src/services/fiche/` (`view.py` calcule et pagine, les gabarits
+  Jinja `templates/fiche.html.j2` et `fiche.css.j2` placent le texte).
+  `src/services/pdf_generator.py` reste le point d'entree.
+- Pages A4 fixes, numerotees en Python : WeasyPrint, l'apercu et
+  l'impression du navigateur donnent le meme document. Les options sont
+  paginees avec les largeurs de glyphes de Montserrat.
+- Une section sans donnee est omise (pas de cadre vide dans un document
+  client) : descriptif et implantation sans documentation de gamme, plans
+  sans image jointe, contacts sans departement.
+- Documentation d'une gamme : `src/services/fiche/data/gammes/<MODELE>.json`
+  (valide par `gamme.schema.json`). Pour ajouter une gamme, copier
+  `PLP.json`, sourcer chaque phrase (manuel GALLETTI, fiche France Air) et
+  deposer la photo dans `src/services/fiche/assets/`.
+- Donnees pre-calculees : la carte (`data/france_departements.json`) et les
+  largeurs de police (`data/montserrat_widths.json`) se regenerent avec
+  `tools/build_france_map.py` et `tools/build_font_metrics.py`.
+- Pompe : intensite et pression disponible sont lues dans le catalogue
+  (colonnes `current_A`, `available_pressure_kPa`) ; a defaut la fiche
+  indique qu'elles sont a confirmer.
 
 Le backend utilise un `MockContactsRepository` quand `BASEROW_TOKEN`
 n'est pas defini (donnees factices mais plausibles), et bascule sur
 `BaserowContactsRepository` lorsque le token et l'URL sont presents.
 
 ## Outils CLI
+
+### Actualisation du referentiel options (comparaison de snapshots)
+
+```bash
+python tools/referential_diff.py ancien.json nouveau.json --markdown rapport.md
+```
+
+Compare deux instantanes du referentiel (options par modele / type /
+taille, voir `src/services/referential.py`) et liste les ajouts,
+modifications (libelle, prix, disponibilite...) et suppressions, machine
+par machine. `--fail-on-change` renvoie le code 1 s'il y a une difference.
 
 ### Validation d'un CSV options/accessoires
 
@@ -331,7 +376,8 @@ FAG-INVENIO/
 |  |- api/                      # FastAPI app
 |  |- parser/                   # docx_parser.py + mapping
 |  |- schema/                   # JSON Schemas
-|  `- services/                 # baserow_client.py
+|  `- services/                 # baserow_client.py, pdf_generator.py
+|     `- fiche/                  # fiche de selection : vue, gabarits, assets, gammes
 |- tools/
 |  `- validate_csv.py
 |- tests/

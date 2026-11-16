@@ -448,3 +448,47 @@ def test_parse_real_sample_file_if_present() -> None:
             files={"file": (sample.name, f.read(), "application/octet-stream")},
         )
     assert response.status_code == 200
+
+
+def test_generate_preview_puts_the_project_name_on_the_cover() -> None:
+    payload = _generation_payload()
+    payload["project_name"] = "Projet COURNEUVE"
+    client = TestClient(app)
+    response = client.post("/generate/preview", json=payload)
+    assert response.status_code == 200
+    assert "Projet COURNEUVE" in response.text
+    # The whole options catalogue of the machine is listed, not only the chosen ones.
+    assert "Carte Ethernet + horloge" in response.text
+
+
+def test_generate_pdf_filename_includes_the_project_name() -> None:
+    payload = _generation_payload()
+    payload["project_name"] = "Courneuve"
+    client = TestClient(app)
+    response = client.post("/generate/pdf", json=payload)
+    assert response.status_code == 200
+    assert "INVENIO-courneuve-plp-052-hs.pdf" in response.headers["content-disposition"]
+
+
+def test_generate_preview_survives_an_unreachable_catalogue() -> None:
+    from src.api.main import get_options_catalog
+    from src.services.options_catalog import OptionsCatalog
+
+    class BrokenCatalog(OptionsCatalog):
+        def list_options(self, model: str, type_: str, size: str) -> list:
+            raise RuntimeError("Baserow is down")
+
+    app.dependency_overrides[get_options_catalog] = BrokenCatalog
+    try:
+        response = TestClient(app).post("/generate/preview", json=_generation_payload())
+    finally:
+        app.dependency_overrides.pop(get_options_catalog, None)
+    assert response.status_code == 200
+    assert "Protection echangeur" in response.text  # decoded option from the record
+
+
+def test_generate_rejects_an_overlong_project_name() -> None:
+    payload = _generation_payload()
+    payload["project_name"] = "x" * 121
+    response = TestClient(app).post("/generate/preview", json=payload)
+    assert response.status_code == 422

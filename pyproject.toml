@@ -47,6 +47,10 @@ validate-options-csv = "tools.validate_csv:main"
 where = ["."]
 include = ["src*", "tools*"]
 
+[tool.setuptools.package-data]
+"src.parser" = ["*.csv"]
+"src.services.fiche" = ["templates/*.j2", "assets/*", "data/*.json", "data/gammes/*.json"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]

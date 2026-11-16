@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import tempfile
 from functools import lru_cache
@@ -40,6 +41,8 @@ app = FastAPI(
     version="0.3.0",
     description="France Air - Migration GALLETTI -> INVENIO. Endpoints MVP.",
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 DEPARTMENT_RE = re.compile(r"^(2A|2B|[0-9]{2,3})$")
@@ -214,6 +217,9 @@ class GenerationRequest(BaseModel):
     """Payload sent by the UI to render the fiche."""
 
     record: dict[str, Any] = Field(..., description="Canonical record from /parse/*")
+    project_name: str | None = Field(
+        default=None, max_length=120, description="Shown on the cover, e.g. 'Projet COURNEUVE'"
+    )
     contacts: dict[str, Any] | None = None
     selected_option_codes: list[str] = Field(default_factory=list)
     document_reference: str | None = None
@@ -237,13 +243,35 @@ def _validate_plans(plans: list[PlanPayload]) -> tuple[PlanImage, ...]:
     return tuple(images)
 
 
-def _build_generation_context(payload: GenerationRequest) -> GenerationContext:
+def _catalog_for(record: dict[str, Any], catalog: OptionsCatalog) -> tuple[dict[str, Any], ...]:
+    """Options catalogue of the machine, so the fiche lists every option by family.
+
+    The fiche must still render when the catalogue is unreachable (Baserow
+    down, unknown machine): it then falls back to the options decoded from
+    the designation.
+    """
+
+    model, type_, size = (str(record.get(key) or "") for key in ("model", "type", "size"))
+    if not (model and type_ and size):
+        return ()
+    try:
+        return tuple(option.to_dict() for option in catalog.list_options(model, type_, size))
+    except Exception:  # noqa: BLE001 - any catalogue failure degrades to the fallback
+        logger.warning("Options catalogue unavailable for %s %s %s", model, size, type_, exc_info=True)
+        return ()
+
+
+def _build_generation_context(
+    payload: GenerationRequest, catalog: OptionsCatalog
+) -> GenerationContext:
     return GenerationContext(
         record=payload.record,
+        project_name=(payload.project_name or "").strip() or None,
         contacts=payload.contacts,
         selected_option_codes=tuple(payload.selected_option_codes),
         document_reference=payload.document_reference,
         plans=_validate_plans(payload.plans),
+        catalog_options=_catalog_for(payload.record, catalog),
     )
 
 
@@ -252,8 +280,11 @@ def _build_generation_context(payload: GenerationRequest) -> GenerationContext:
     summary="Render the fiche as a self-contained HTML preview",
     response_class=HTMLResponse,
 )
-def generate_preview(payload: GenerationRequest) -> HTMLResponse:
-    html = render_html(_build_generation_context(payload))
+def generate_preview(
+    payload: GenerationRequest,
+    catalog: OptionsCatalog = Depends(get_options_catalog),
+) -> HTMLResponse:
+    html = render_html(_build_generation_context(payload, catalog))
     return HTMLResponse(content=html, status_code=200)
 
 
@@ -261,16 +292,19 @@ def generate_preview(payload: GenerationRequest) -> HTMLResponse:
     "/generate/pdf",
     summary="Render the fiche as a PDF (requires WeasyPrint)",
 )
-def generate_pdf_endpoint(payload: GenerationRequest) -> Response:
+def generate_pdf_endpoint(
+    payload: GenerationRequest,
+    catalog: OptionsCatalog = Depends(get_options_catalog),
+) -> Response:
     try:
-        pdf_bytes = render_pdf(_build_generation_context(payload))
+        pdf_bytes = render_pdf(_build_generation_context(payload, catalog))
     except PdfEngineUnavailableError as err:
         raise HTTPException(
             status_code=503,
             detail="PDF engine unavailable. Install weasyprint to enable /generate/pdf.",
         ) from err
 
-    filename = suggested_filename(payload.record)
+    filename = suggested_filename(payload.record, project_name=payload.project_name)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

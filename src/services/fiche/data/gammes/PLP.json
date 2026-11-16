@@ -1,0 +1,113 @@
+{
+  "model": "PLP",
+  "range_label": "Gamme INVENIO® PLP",
+  "photo": "photo-plp.webp",
+  "kinds": {
+    "H": "Pompe à chaleur réversible air / eau",
+    "C": "Groupe d’eau glacée air / eau"
+  },
+  "highlights": [
+    {
+      "icon": "drop",
+      "title": "Fluide naturel R290",
+      "text": "Fluide A3 à PRP 3, conforme à la réglementation F-Gas."
+    },
+    {
+      "icon": "scroll",
+      "title": "Scroll inverter",
+      "text": "Compresseur à vitesse variable et détendeur électronique pour la charge partielle."
+    },
+    {
+      "icon": "shield",
+      "title": "Sécurité intégrée",
+      "text": "Détecteur de fuite, ventilateur d’extraction ATEX, séparateur / dégazeur."
+    }
+  ],
+  "description": [
+    {
+      "title": "La gamme PLP",
+      "items": [
+        "Groupes d’eau glacée et pompes à chaleur monobloc air / eau au R290, pour installation extérieure.",
+        "5 tailles : 36 à 57 kW en froid seul, 37 à 63 kW en chaud pour les versions réversibles.",
+        "Production d’eau de −10 °C à 80 °C ; pleine charge garantie de −20 °C à 48 °C d’air extérieur.",
+        "Indice de protection IPX4, tableau électrique IP54. Installation en zone non accessible au public."
+      ]
+    },
+    {
+      "title": "Structure",
+      "items": [
+        "Châssis en tôle d’acier galvanisée, peinture poudre polyester RAL 9002 pour l’extérieur.",
+        "Visserie inoxydable ou en acier carbone passivé.",
+        "Isolation acoustique pour limiter les émissions sonores."
+      ]
+    },
+    {
+      "title": "Compresseur",
+      "items": [
+        "Compresseur scroll à technologie inverter.",
+        "Isolation phonique du compresseur disponible en option."
+      ]
+    },
+    {
+      "title": "Échangeur côté eau",
+      "items": [
+        "Échangeur à plaques brasées en acier inoxydable, optimisé pour le R290.",
+        "Glycol éthylénique jusqu’à 25 % avec les pompes standard, 35 % avec garnitures VITON.",
+        "Compteur d’énergie thermique côté utilisateur en option."
+      ]
+    },
+    {
+      "title": "Batterie et ventilation",
+      "items": [
+        "Version H : batterie à tubes cuivre de 7 mm et ailettes aluminium à traitement hydrophile.",
+        "Ventilateurs EC (de série sur la taille 62).",
+        "Ventilateur d’extraction ATEX, piloté par le détecteur de gaz en cas de fuite."
+      ]
+    },
+    {
+      "title": "Circuit frigorifique",
+      "items": [
+        "Détendeur électronique, vanne d’inversion de cycle et réservoir de liquide (version H).",
+        "Filtre déshydrateur, voyant liquide avec indicateur d’humidité."
+      ]
+    },
+    {
+      "title": "Régulation",
+      "items": [
+        "Régulateur à microprocesseur : température de départ, ΔT, détendeur, historique des alarmes.",
+        "Port RS485, second afficheur déporté, jusqu’à 6 unités en réseau local.",
+        "Accès au régulateur par un volet polycarbonate IP65."
+      ]
+    },
+    {
+      "title": "Sécurités",
+      "items": [
+        "Pressostat haute pression.",
+        "Détecteur de fuite à centrale indépendante : coupe l’alimentation au-delà du seuil d’inflammabilité en maintenant les sécurités sous tension."
+      ]
+    }
+  ],
+  "description_sources": "Manuel d’installation GALLETTI PLP (§1 La série PLP, §2 Composants principaux) ; fiche France Air INVENIO® PLP 30 – 65 kW.",
+  "envelope": {
+    "air_C": [-20, 48],
+    "water_C": [-10, 80],
+    "source": "Limites annoncées pour la gamme (manuel GALLETTI PLP, §1.2), avec les points de la sélection. Enveloppe détaillée : manuel, p. 40-41."
+  },
+  "plans_source": "Dessins dimensionnels du manuel GALLETTI PLP, p. 10 à 13.",
+  "implantation": {
+    "refrigerant_safety": [
+      "Fluide A3, hautement inflammable.",
+      "Plus lourd que l’air : il peut s’accumuler dans les points bas (sous-sols, regards). Aucune source d’ignition dans la zone de sécurité.",
+      "Installation extérieure, hors zone ATEX et hors accès du public."
+    ],
+    "clearances": {
+      "052H": {
+        "maintenance_b_m": 1.5,
+        "maintenance_c_m": 1.0,
+        "safety_d_m": 3.0
+      }
+    },
+    "source": "Valeurs du manuel GALLETTI PLP (p. 15) ; côtés concernés selon le schéma constructeur. Schéma non à l’échelle. Ces distances ne dispensent pas de l’analyse de risque et de la conception selon EN 378.",
+    "missing": "Distances de la taille non renseignées : se référer au manuel GALLETTI PLP, p. 15."
+  }
+}

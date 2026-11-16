@@ -61,6 +61,8 @@ def test_catalog_option_to_dict_round_trip() -> None:
         "tips": "tip",
         "price_eur": 129.0,
         "available": True,
+        "current_A": None,
+        "available_pressure_kPa": None,
     }
 
 

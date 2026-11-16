@@ -29,6 +29,10 @@ class CatalogOption:
     tips: str | None = None
     price_eur: float | None = None
     available: bool = True
+    # Pump options only: electrical current and available pressure, shown in
+    # the fiche's technical data once the GALLETTI referential provides them.
+    current_A: float | None = None  # noqa: N815 - unit suffix, as in the canonical record
+    available_pressure_kPa: float | None = None  # noqa: N815
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +43,8 @@ class CatalogOption:
             "tips": self.tips,
             "price_eur": self.price_eur,
             "available": self.available,
+            "current_A": self.current_A,
+            "available_pressure_kPa": self.available_pressure_kPa,
         }
 
 
@@ -214,6 +220,10 @@ def _row_to_option(row: dict[str, Any]) -> CatalogOption | None:
         tips=_first_str(row, "tips_fr", "tips", "Tips") or None,
         price_eur=_parse_float(row.get("price_eur") or row.get("price") or row.get("Prix")),
         available=_parse_bool(row.get("available") or row.get("Disponible")),
+        current_A=_parse_float(row.get("current_A") or row.get("Intensite_A")),
+        available_pressure_kPa=_parse_float(
+            row.get("available_pressure_kPa") or row.get("Pression_dispo_kPa")
+        ),
     )
 
 
